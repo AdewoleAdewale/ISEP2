@@ -1,23 +1,40 @@
-﻿using Xamarin.Forms;
+﻿using ISEP.Services;
+using Xamarin.Forms;
 
 namespace ISEP
 {
     public partial class App : Application
     {
         public static bool IsUserLoggedIn { get; set; }
-        public static string PrinterFooter { get; set; }
-        public static string RevenueServiceName { get; set; }
-        public static string CentralPortalURL { get; set; }
+   
+
+        public static string PrinterFooter => BrandConfig.ReceiptFooterLine2;
+        public static string RevenueServiceName => BrandConfig.OrganisationName + " (" + BrandConfig.OrganisationAbbr + ") ";
+        public static string CentralPortalURL => BrandConfig.CentralCollectUrl;
         public static string CentralPortalURLkeke { get; set; }
-        public static string ThankYouMessage { get; set; }
+        public static string ThankYouMessage => "CONTACT US : " + BrandConfig.SupportPhone1 + "," + BrandConfig.SupportPhone2;
+
+        /// <summary>Shared printer service. Prefer <see cref="ReceiptPrinter"/> over calling this directly.</summary>
+        public static IPrinterService Printer { get; private set; }
+
+        /// <summary>Durable print job queue. Prefer <see cref="ReceiptPrinter"/>.</summary>
+        public static PrintJobManager PrintJobManager { get; private set; }
+
+        /// <summary>
+        /// Called by each platform head (MainActivity on Android) BEFORE
+        /// LoadApplication to inject the platform printer implementation.
+        /// The shared project no longer references Android assemblies.
+        /// </summary>
+        public static void InitializePrinting(IPrinterService printer)
+        {
+            Printer = printer ?? new MockPrinterService();
+            PrintJobManager = new PrintJobManager(Printer);
+        }
         public App()
         {
             InitializeComponent();
-
-            CentralPortalURL = "https://borno.osoftpay.net/api/SingleCollections/PostCollect/NewCollect";
-            RevenueServiceName = "BORNO STATE INTERNAL REVENUE SERVICE(BOIRS) ";
-            PrinterFooter = "POWERED BY OSOFTPAY";
-            ThankYouMessage = "CONTACT US : 08144993882,###########";
+            if (Printer == null)
+                InitializePrinting(new MockPrinterService());
 
             MainPage = new Views.LoginPage();
             //if (!Properties.TryGetValue("first_time", out object value))
