@@ -1,0 +1,90 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml" xmlns:viewmodels="clr-namespace:ISEP.ViewModels"
+             x:Class="ISEP.MainPage"
+              NavigationPage.HasNavigationBar="False"
+             BackgroundColor="White">
+    <ContentPage.BindingContext>
+        <viewmodels:OnboardingPageViewModel />
+    </ContentPage.BindingContext>
+    <Grid Padding="30,40,20,20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <StackLayout Grid.Row="0" Orientation="Vertical">
+
+            <Label Text="ENSURE TO KEEP TRACK OF YOUR" TextColor="#032D6E" FontSize="25" FontAttributes="Bold" 
+                VerticalOptions="Center" HorizontalOptions="Start" Margin="0,0,0,-5"/>
+
+
+            <Label Text="PAYMENT ON BIRS" TextColor="#032D6E" FontSize="25" FontFamily="LatoRegular"
+                VerticalOptions="Center" HorizontalOptions="CenterAndExpand" Margin="0,0,0,10"/>
+
+        </StackLayout>
+
+        <IndicatorView Grid.Row="1" x:Name="indicatorView" IndicatorColor="Black" IndicatorsShape="Circle" IndicatorSize="8" Margin="4,10,0,0"  SelectedIndicatorColor="Red" HorizontalOptions="CenterAndExpand" VerticalOptions="End" />
+           <CarouselView
+                    Grid.Row="2"
+                    x:Name="carouselView"
+                     Margin="0,10,5,200"
+                    HorizontalOptions="CenterAndExpand" VerticalOptions="EndAndExpand"
+                    IndicatorView="indicatorView"
+              
+                      HorizontalScrollBarVisibility="Never"
+                    ItemsSource="{Binding sliderImage}">
+            <CarouselView.HeightRequest>
+                <OnIdiom x:TypeArguments="x:Double">
+                    <OnIdiom.Phone>320</OnIdiom.Phone>
+                    <OnIdiom.Tablet>320</OnIdiom.Tablet>
+                </OnIdiom>
+            </CarouselView.HeightRequest>
+            <CarouselView.ItemsLayout>
+                <LinearItemsLayout Orientation="Horizontal" SnapPointsType="MandatorySingle" />
+            </CarouselView.ItemsLayout>
+            <CarouselView.ItemTemplate>
+                        <DataTemplate>
+                            <StackLayout>
+                                <StackLayout>
+                                    <Image Aspect="AspectFit" Source="{Binding ImageUrl}" />
+                                </StackLayout>
+                            </StackLayout>
+                        </DataTemplate>
+                    </CarouselView.ItemTemplate>
+                </CarouselView>
+
+        <Grid Grid.Row="2" VerticalOptions="End" RowSpacing="0" ColumnSpacing="0" Padding="0"
+              Margin="0,0,0,40">
+
+            <Frame Grid.Row="0" Margin="-10" BackgroundColor="WhiteSmoke"
+                Opacity="0.2" Padding="5" CornerRadius="10"
+                WidthRequest="50" HeightRequest="50"
+                VerticalOptions="Center" HorizontalOptions="FillAndExpand">
+
+                <Frame.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="TapGestureRecognizer_Tapped"/>
+                </Frame.GestureRecognizers>
+            </Frame>
+
+            <Frame Grid.Row="0" BackgroundColor="#032D6E" Opacity="1" CornerRadius="10" Margin="5" Padding="0"
+                   WidthRequest="50" HeightRequest="50" BorderColor="#032D6E" 
+                   HorizontalOptions="FillAndExpand" VerticalOptions="Center">
+
+                <Label Text="PROCEED"  TextColor="White" Rotation="0" HorizontalTextAlignment="Center"
+                       FontAttributes="Bold" FontSize="15" HorizontalOptions="Center" VerticalOptions="Center"></Label>
+
+
+                <Frame.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="TapGestureRecognizer_Tapped"/>
+                </Frame.GestureRecognizers>
+            </Frame>
+
+            <Grid.GestureRecognizers>
+                <TapGestureRecognizer Tapped="TapGestureRecognizer_Tapped"/>
+            </Grid.GestureRecognizers>
+        </Grid>
+
+    </Grid>
+</ContentPage>
