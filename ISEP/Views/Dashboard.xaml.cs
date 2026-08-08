@@ -1,21 +1,21 @@
 ﻿using Acr.UserDialogs;
-using Android.Bluetooth;
-using Java.Util;
 using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
 using System.Linq;
-using System.Net;
-using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
+using ISEP.Services;
 
 namespace ISEP.Views
 {
     [XamlCompilation(XamlCompilationOptions.Compile)]
     public partial class Dashboard : ContentPage
     {
-
+        private CancellationTokenSource _cts;
+        private bool _isBusy = false;
 
         public static string superAgent { get; set; }
         public static string agent { get; set; }
@@ -24,282 +24,171 @@ namespace ISEP.Views
         public Dashboard()
         {
             InitializeComponent();
-
-            if (LoginPage.Name == " ")
-            {
-                Username.Text = LoginPage.ValidUserMail;
-                Balance.Text = LoginPage.accountbalance;
-                bankname.Text = LoginPage.Banks;
-                Accountnumber.Text = LoginPage.accountnumbers;
-            }
-            else if (LoginPage.Name != " ")
-            {
-                Username.Text = LoginPage.Name;
-                Balance.Text = LoginPage.accountbalance;
-                bankname.Text = LoginPage.Banks;
-                Accountnumber.Text = LoginPage.accountnumbers;
-            }
-
-
         }
 
-        private async void Button_Clicked(object sender, System.EventArgs e)
+        protected override void OnAppearing()
         {
-            using (UserDialogs.Instance.Loading("Connecting to ISEP, Please Wait...", null, null, true, MaskType.Gradient))
-            {
-                await Task.Delay(1000);
-
-
-                await Navigation.PushAsync(new Views.Verify());
-            }
+            base.OnAppearing();
+            PopulateIdentity();
+            _ = LoadTransactionsAsync();
         }
 
-        private async void Button_Clicked_2(object sender, System.EventArgs e)
+        protected override void OnDisappearing()
         {
-            using (UserDialogs.Instance.Loading("Connecting to ISEP, Please Wait...", null, null, true, MaskType.Gradient))
+            base.OnDisappearing();
+            _cts?.Cancel();
+        }
+
+        private void PopulateIdentity()
+        {
+            try
             {
-                await Task.Delay(1000);
-
-
-                await Navigation.PushAsync(new Views.History());
+                AgentNameLabel.Text = string.IsNullOrWhiteSpace(LoginPage.Name) ? LoginPage.ValidUserMail : LoginPage.Name;
+                MdaLabel.Text = BrandConfig.OrganisationName;
+                WelcomeLabel.Text = GetGreeting();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Dashboard] PopulateIdentity: {ex.Message}");
             }
         }
 
-        private void Button_Clicked_3(object sender, System.EventArgs e)
+        private static string GetGreeting()
         {
+            int h = DateTime.Now.Hour;
+            if (h < 12) return "Good morning 🌅";
+            if (h < 17) return "Good afternoon ☀️";
+            return "Good evening 🌙";
+        }
 
-            Device.BeginInvokeOnMainThread(async () =>
+        private async Task LoadTransactionsAsync()
+        {
+            if (_isBusy) return;
+            _isBusy = true;
+            _cts?.Cancel();
+            _cts = new CancellationTokenSource();
+
+            SetTxnState(loading: true, empty: false, error: false, list: false);
+
+            try
             {
-                string action = "";
-                action = await DisplayActionSheet("HI, WHAT DO YOU WANT TO DO?", "CANCEL", null, "CHANGE PASSWORD", "CHANGE PIN", "TEST PRINTER");
-
-                if (action == "CHANGE PASSWORD")
+                string email = LoginPage.ValidUserMail?.Trim();
+                if (string.IsNullOrEmpty(email))
                 {
-
-                    try
-                    {
-
-                        await Navigation.PushAsync(new Views.ChangePassword());
-                    }
-                    catch (Exception ex)
-                    {
-
-                        ex.ToString();
-                    }
+                    SetTxnError("User email not found. Please log in again.");
+                    return;
                 }
 
-                else if (action == "CHANGE PIN")
+                string url = $"{BrandConfig.ApiBaseUrl}/api/GPayments/gettransaction?Email={Uri.EscapeDataString(email)}&SearchFrom={DateTime.Now.AddDays(-30):MM/dd/yyyy}&SearchTo={DateTime.Now:MM/dd/yyyy}";
+                var all = await ApiClient.GetAsync<List<InvoiceRecord>>(url);
+
+                if (all == null || all.Count == 0)
                 {
-
-                    try
-                    {
-                        await Navigation.PushAsync(new ChangePin());
-                    }
-                    catch (Exception ex)
-                    {
-
-                        ex.ToString();
-                    }
+                    SetTxnState(loading: false, empty: true, error: false, list: false);
+                    StatInvoices.Text = "0";
+                    StatTotalAmount.Text = "₦0";
+                    StatPending.Text = "0";
+                    return;
                 }
 
+                int totalCount = all.Count;
+                double totalAmount = (double)all.Sum(i => i.amount);
 
-
-
-                else if (action == "TEST PRINTER")
+                Device.BeginInvokeOnMainThread(() =>
                 {
+                    StatInvoices.Text = totalCount.ToString();
+                    StatTotalAmount.Text = FormatAmount(totalAmount);
+                    StatPending.Text = "0";
 
-                    try
-                    {
-                        CallPrinter();
-                    }
-                    catch (Exception ex)
-                    {
+                    TransactionListView.HeightRequest = Math.Min(all.Count * 75, 400);
+                    TransactionListView.ItemsSource = all.Take(5).ToList();
+                    SetTxnState(loading: false, empty: false, error: false, list: true);
+                });
+            }
+            catch (Exception ex)
+            {
+                SetTxnError("Could not update collection metrics.");
+                System.Diagnostics.Debug.WriteLine($"[Dashboard] LoadTxn: {ex.Message}");
+            }
+            finally
+            {
+                _isBusy = false;
+            }
+        }
 
-                        ex.ToString();
-                    }
-                }
-
+        private void SetTxnState(bool loading, bool empty, bool error, bool list)
+        {
+            Device.BeginInvokeOnMainThread(() =>
+            {
+                TxnLoadingCard.IsVisible = loading;
+                TxnEmptyCard.IsVisible = empty;
+                TxnErrorCard.IsVisible = error;
+                TransactionListView.IsVisible = list;
             });
-
         }
 
-        private void TapGestureRecognizer_Tapped(object sender, System.EventArgs e)
+        private void SetTxnError(string message)
         {
-            App.IsUserLoggedIn = false;
-            System.Diagnostics.Process.GetCurrentProcess().CloseMainWindow();
-
-        }
-
-
-
-        private async void CallPrinter()
-        {
-            String PrintText;
-
-            PrintText = "\nTest Test Test\n";
-            PrintText = PrintText + "--------------------------------";
-            PrintText = PrintText + "\n\n";
-            PrintText = PrintText + "Status: Printer Connected\n";
-            PrintText = PrintText + "--------------------------------";
-            PrintText = PrintText + "\n\n";
-
-
-#pragma warning disable CS0618 // Type or member is obsolete
-            using (BluetoothAdapter bluetoothAdapter = BluetoothAdapter.DefaultAdapter)
-#pragma warning restore CS0618 // Type or member is obsolete
+            Device.BeginInvokeOnMainThread(() =>
             {
-                if (bluetoothAdapter == null)
-                {
-                    throw new Exception("No default adapter");
-                    //return;
-                }
+                TxnErrorLabel.Text = message;
+                SetTxnState(loading: false, empty: false, error: true, list: false);
+            });
+        }
 
-                if (!bluetoothAdapter.IsEnabled)
-                {
-                    throw new Exception("Bluetooth not enabled");
-                    //Intent enableIntent = new Intent(BluetoothAdapter.ActionRequestEnable);
-                    //StartActivityForResult(enableIntent, REQUEST_ENABLE_BT);
-                    // Otherwise, setup the chat session
-                }
+        private static string FormatAmount(double amount)
+        {
+            if (amount >= 1_000_000) return $"₦{amount / 1_000_000:F1}M";
+            if (amount >= 1_000) return $"₦{amount / 1_000:F1}K";
+            return $"₦{amount:N0}";
+        }
 
-                string printer1 = "MPT-II";
-                string printer2 = "printer001";
-                string printer3 = "RPP02N";
-                string printer4 = "RPP210";
-                string printer5 = "InnerPrinter";
-                string printer6 = "b906";
-                string printer7 = "ANDROID BT";
-                string printer8 = "FP8800";
-                string printer9 = "IposPrinter";
-                string printer10 = "CS10";
-                string printer11 = "Q2i";
-                string printer12 = "Internal Bluetooth Printer";
+        private async void OnDirectPaymentTapped(object sender, EventArgs e) => await Navigation.PushAsync(new Views.Payment());
+        private async void OnVerifyPaymentTapped(object sender, EventArgs e) => await Navigation.PushAsync(new Views.Verify());
+        private async void OnTaxReportTapped(object sender, EventArgs e) => await Navigation.PushAsync(new Views.History());
+        private async void OnInvoiceHistoryTapped(object sender, EventArgs e) => await Navigation.PushAsync(new Views.History());
+        private async void OnTxnRetryTapped(object sender, EventArgs e) => await LoadTransactionsAsync();
 
-                BluetoothDevice device = (from bd in bluetoothAdapter.BondedDevices
-                                          where (bd.Name == printer1) || (bd.Name == printer2) || (bd.Name == printer3) || (bd.Name == printer4) || (bd.Name == printer5) || (bd.Name == printer6) || (bd.Name == printer7) || (bd.Name == printer8) || (bd.Name == printer9) || (bd.Name == printer10) || (bd.Name == printer11) || (bd.Name == printer12)
-                                          select bd).FirstOrDefault();
-                if (device == null)
-                    await DisplayAlert("NOTIFICATION", "Bluethooth Not Connected To Designated Printer", "TRY AGAIN");
-
-
+        private async void TestPrinter_Clicked(object sender, EventArgs e)
+        {
+            using (UserDialogs.Instance.Loading("Running Printer Diagnostics..."))
+            {
                 try
                 {
-                    using (BluetoothSocket _socket = device.CreateRfcommSocketToServiceRecord(UUID.FromString("00001101-0000-1000-8000-00805f9b34fb")))
-                    {
-
-                        await _socket.ConnectAsync();
-
-                        if (_socket.IsConnected)
-                        {
-                            byte[] buffer = System.Text.Encoding.UTF8.GetBytes(PrintText);
-                            await Task.Delay(3000);
-                            // Write data to the device
-                            await _socket.OutputStream.WriteAsync(buffer, 0, buffer.Length);
-                            _socket.Close();
-                        }
-                        else
-                        {
-                            await DisplayAlert("1st Warning", "Check your bluetooth printer before clicking ok", "Ok");
-                            if (_socket.IsConnected)
-                            {
-                                byte[] buffer = System.Text.Encoding.UTF8.GetBytes(PrintText);
-                                await Task.Delay(3000);
-                                // Write data to the device
-                                await _socket.OutputStream.WriteAsync(buffer, 0, buffer.Length);
-                                _socket.Close();
-                            }
-                            else
-                            {
-                                await DisplayAlert("2nd Warning", "Check your bluetooth printer before clicking ok", "Ok");
-                                if (_socket.IsConnected)
-                                {
-                                    byte[] buffer = System.Text.Encoding.UTF8.GetBytes(PrintText);
-                                    await Task.Delay(3000);
-                                    // Write data to the device
-                                    await _socket.OutputStream.WriteAsync(buffer, 0, buffer.Length);
-                                    _socket.Close();
-                                }
-                                else
-                                {
-                                    await DisplayAlert("Last Warning", "Check your bluetooth printer before clicking ok", "Ok");
-                                    if (_socket.IsConnected)
-                                    {
-                                        byte[] buffer = System.Text.Encoding.UTF8.GetBytes(PrintText);
-                                        await Task.Delay(3000);
-                                        // Write data to the device
-                                        await _socket.OutputStream.WriteAsync(buffer, 0, buffer.Length);
-                                        _socket.Close();
-                                    }
-                                }
-
-                            }
-                        }
-
-                    }
+                    await App.Printer.PrintTestPageAsync();
+                    UserDialogs.Instance.Toast("Test receipt sent to printer.");
                 }
-                catch (Exception exp)
+                catch (Exception ex)
                 {
-                    await DisplayAlert("NOTIFICATION", "Printer not connected", "OKAY");
-                    exp.ToString();
+                    await DisplayAlert("Printer Diagnostics", ex.Message, "OK");
                 }
-
-
             }
-
         }
 
-        internal class BalanceResponse
+        private async void OnLogoutTapped(object sender, EventArgs e)
         {
-            public string superAgent { get; set; }
-            public string agent { get; set; }
-            public string cashoutBalance { get; set; }
-
-
-        }
-
-        private async void TapGestureRecognizer_Tapped_1(object sender, EventArgs e)
-        {
-            using (UserDialogs.Instance.Loading("Connecting to Service, Please Wait...", null, null, true))
+            bool confirm = await DisplayAlert("Sign Out", "Are you sure you want to log out?", "Logout", "Cancel");
+            if (confirm)
             {
-                await Task.Delay(500);
-
-
-                string url = "https://collection.osoftpay.net/api/Caccounts";
-                try
-                {
-
-                    using (HttpClient client = new HttpClient())
-                    {
-                        client.DefaultRequestHeaders.Add("Agent", LoginPage.ValidUserMail);
-                        client.DefaultRequestHeaders.Add("TradingPin", LoginPage.Pin);
-                        ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
-                        using (HttpResponseMessage response = client.GetAsync(url).Result)
-                        {
-                            using (HttpContent content = response.Content)
-                            {
-                                var json = content.ReadAsStringAsync().Result;
-                                BalanceResponse result = JsonConvert.DeserializeObject<BalanceResponse>
-                                    (json);
-                                if (result != null)
-                                {
-                                    agent = result.agent;
-                                    superAgent = result.superAgent;
-                                    cashoutBalance = result.cashoutBalance;
-                                    await Navigation.PushAsync(new CashoutPage());
-
-                                }
-                            }
-                        }
-                    }
-
-                }
-                catch (System.Exception exe)
-                {
-
-                    exe.ToString();
-                }
-
+                SessionService.ClearSession();
+                App.IsUserLoggedIn = false;
+                Application.Current.MainPage = new NavigationPage(new LoginPage());
             }
         }
+    }
+
+    public class InvoiceRecord
+    {
+        [JsonProperty("payerName")]
+        public string payer_Name { get; set; }
+
+        [JsonProperty("amount")]
+        public decimal amount { get; set; }
+
+        [JsonProperty("serviceName")]
+        public string service_Name { get; set; }
+
+        [JsonProperty("status")]
+        public string status { get; set; }
     }
 }

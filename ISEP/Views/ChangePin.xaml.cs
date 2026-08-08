@@ -1,11 +1,9 @@
 ﻿using Acr.UserDialogs;
-using Newtonsoft.Json;
 using System;
-using System.Net;
-using System.Net.Http;
 using System.Threading.Tasks;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
+using ISEP.Services;
 
 namespace ISEP.Views
 {
@@ -16,79 +14,45 @@ namespace ISEP.Views
         {
             InitializeComponent();
         }
-        protected override bool OnBackButtonPressed()
+
+        private async void UpdatePin_Clicked(object sender, EventArgs e)
         {
-            Device.BeginInvokeOnMainThread(async () =>
+            if (string.IsNullOrWhiteSpace(OldPINEntry.Text) || string.IsNullOrWhiteSpace(ConfirmPIN.Text))
             {
-                using (UserDialogs.Instance.Loading("Connecting to Service, Please Wait...", null, null, true))
-                {
-                    await Task.Delay(10);
+                await DisplayAlert("NOTIFICATION", "Kindly fill in all fields before proceeding.", "TRY AGAIN");
+                return;
+            }
 
-                    await Navigation.PushAsync(new Views.Dashboard());
-                }
-
-            });
-            return true;
-        }
-
-        private async void TapGestureRecognizer_Tapped(object sender, EventArgs e)
-        {
-            using (UserDialogs.Instance.Loading("Connecting to Service, Please Wait...", null, null, true))
+            if (OldPINEntry.Text != LoginPage.Pin)
             {
-                await Task.Delay(2000);
+                await DisplayAlert("NOTIFICATION", "Cannot confirm your old PIN. Please try again.", "OKAY");
+                return;
+            }
 
-                if (OldPINEntry.Text == LoginPage.Pin)
+            using (UserDialogs.Instance.Loading("Updating PIN...", null, null, true))
+            {
+                string url = $"{BrandConfig.ApiBaseUrl}/api/taskpayers/SAChangePin?UserName={LoginPage.ValidUserMail}&NewPin={ConfirmPIN.Text.Trim()}";
+
+                try
                 {
-                    //Connect to cloud and retrieve email and password combination
-                    string url = "https://borno.osoftpay.net/api/taskpayers/SAChangePin?UserName=" + LoginPage.ValidUserMail + "&NewPin=" + ConfirmPIN.Text;
+                    var result = await ApiClient.GetAsync<InterfacePass>(url);
 
-                    try
+                    if (result != null && result.status == "00")
                     {
-
-                        using (HttpClient client = new HttpClient())
-                        {
-                            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
-                            using (HttpResponseMessage response = client.GetAsync(url).Result)
-                            {
-                                using (HttpContent content = response.Content)
-                                {
-                                    var json = content.ReadAsStringAsync().Result;
-                                    InterfacePass result = JsonConvert.DeserializeObject<InterfacePass>
-                                        (json);
-
-                                    if (result != null)
-                                    {
-                                        if (result.status == "00")
-                                        {
-                                            App.IsUserLoggedIn = false;
-                                            await DisplayAlert("NOTIFICATION", "Pin Change Successful. Please Login Again!", "OKAY");
-                                            Application.Current.MainPage = new NavigationPage(new LoginPage());
-                                        }
-                                        else
-                                        {
-                                            await DisplayAlert("NOTIFICATION", "Error, PIN was not changed!", "OKAY");
-
-                                        }
-                                    }
-                                    else
-                                    {
-                                        await DisplayAlert("NOTIFICATION", "Connection Failed", "OKAY");
-                                    }
-                                }
-                            }
-                        }
-
+                        SessionService.ClearSession();
+                        App.IsUserLoggedIn = false;
+                        await DisplayAlert("NOTIFICATION", "PIN Change Successful. Please log in again!", "OKAY");
+                        Application.Current.MainPage = new NavigationPage(new LoginPage());
                     }
-                    catch (Exception exe)
+                    else
                     {
-                        await DisplayAlert("NOTIFICATION", "Check your Internet", "TRY AGAIN");
-                        exe.ToString();
+                        await DisplayAlert("NOTIFICATION", "Error: PIN was not changed.", "OKAY");
                     }
                 }
-                else
+                catch (Exception ex)
                 {
-                    await DisplayAlert("NOTIFICATION", "Can't Confirm Your Old Pin Please Try Again", "OKAY");
-
+                    await DisplayAlert("NOTIFICATION", "Network error. Please check your internet connection.", "TRY AGAIN");
+                    System.Diagnostics.Debug.WriteLine($"PIN update error: {ex.Message}");
                 }
             }
         }

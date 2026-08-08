@@ -113,6 +113,30 @@ namespace ISEP.Services
             };
         }
 
+   
+
+        public static async Task<T> GetAsync<T>(string url)
+        {
+            var response = await Instance.GetAsync(url);
+            response.EnsureSuccessStatusCode();
+            var json = await response.Content.ReadAsStringAsync();
+            return JsonConvert.DeserializeObject<T>(json);
+        }
+
+        public static async Task<TResponse> PostAsync<TResponse>(string url, object payload)
+        {
+            var content = new StringContent(
+                JsonConvert.SerializeObject(payload),
+                Encoding.UTF8,
+                "application/json");
+
+            var response = await Instance.PostAsync(url, content);
+            response.EnsureSuccessStatusCode();
+            var json = await response.Content.ReadAsStringAsync();
+            return JsonConvert.DeserializeObject<TResponse>(json);
+        }
+    
+
         /// <summary>GET a URL and deserialise the JSON body to T. Throws on non-success.</summary>
         public static async Task<T> GetJsonAsync<T>(string url, CancellationToken ct = default)
         {

@@ -1,12 +1,9 @@
 ﻿using Acr.UserDialogs;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using System;
-using System.Net.Http;
-using System.Text;
 using System.Threading.Tasks;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
+using ISEP.Services;
 
 namespace ISEP.Views
 {
@@ -16,135 +13,52 @@ namespace ISEP.Views
         public CashoutPage()
         {
             InitializeComponent();
-
-            if (LoginPage.Name == " ")
-            {
-                AgentSupervisor.Text = "  " + Dashboard.superAgent;
-                Agentname.Text = "  " + Dashboard.agent;
-                CashoutBalance.Text = " N" + Dashboard.cashoutBalance;
-
-
-            }
-            else if (LoginPage.Name != " ")
-            {
-                AgentSupervisor.Text = "  " + Dashboard.superAgent;
-                Agentname.Text = "  " + LoginPage.Name;
-                CashoutBalance.Text = "N" + Dashboard.cashoutBalance;
-            }
-
+            AgentSupervisor.Text = Dashboard.superAgent;
+            Agentname.Text = string.IsNullOrWhiteSpace(LoginPage.Name) ? LoginPage.ValidUserMail : LoginPage.Name;
+            CashoutBalance.Text = "₦" + Dashboard.cashoutBalance;
         }
 
-
-
-        private async void Button_Clicked(object sender, EventArgs e)
+        private async void ProcessCashout_Clicked(object sender, EventArgs e)
         {
-            using (IProgressDialog progress = UserDialogs.Instance.Progress("Connecting to Service, Please Wait...", null, null, true, MaskType.Gradient))
+            if (string.IsNullOrWhiteSpace(Password.Text) || Password.Text.Length < 4)
             {
-                for (int i = 0; i < 100; i++)
-                {
-                    progress.PercentComplete = i;
-                    await Task.Delay(60);
-                }
+                await DisplayAlert("NOTIFICATION", "Please enter a valid 4-digit PIN.", "OK");
+                return;
+            }
 
-
-                string email = LoginPage.ValidUserMail;
-
+            using (UserDialogs.Instance.Loading("Processing Cashout...", null, null, true))
+            {
                 try
                 {
+                    var payload = new { Agent = LoginPage.ValidUserMail };
+                    string url = "https://collection.osoftpay.net/api/S_CashOutCall";
 
-                    Object mark = new JObject
-                         {
-                            { "Agent", email }
-                         };
-
-                    var json = JsonConvert.SerializeObject(mark);
-
-                    var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-                    HttpClient client = new HttpClient();
+                    var client = ApiClient.CreateClient();
                     client.DefaultRequestHeaders.Add("Super_Agent", LoginPage.Token);
                     client.DefaultRequestHeaders.Add("TradingPin", Password.Text);
-                    var result = await client.PostAsync("https://collection.osoftpay.net/api/S_CashOutCall", content);
 
-                    string json_response = await result.Content.ReadAsStringAsync();
-                    var CashOutResponse = JsonConvert.DeserializeObject<CashOutResponse>(json_response);
+                    var response = await ApiClient.PostAsync<CashOutResponse>(url, payload);
 
-                    if (CashOutResponse.status != "00")
+                    if (response != null && response.status == "00")
                     {
-
-                        await DisplayAlert("NOTIFICATION", CashOutResponse.message, "TRY AGAIN");
-
-                        await Navigation.PushAsync(new Views.CashoutPage());
-
+                        await DisplayAlert("NOTIFICATION", $"{response.message} Amount: ₦{response.details?.amountReceived}", "THANK YOU");
+                        await Navigation.PopAsync();
                     }
                     else
                     {
-                        await DisplayAlert("NOTIFICATION", CashOutResponse.message + "For This Amount :" + CashOutResponse.details.amountReceived, "THANK YOU");
-                        await Navigation.PushAsync(new Views.CashoutPage());
-
+                        await DisplayAlert("NOTIFICATION", response?.message ?? "Cashout failed.", "TRY AGAIN");
                     }
-
                 }
-                catch (Exception exe)
+                catch (Exception ex)
                 {
-                    UserDialogs.Instance.Toast(" Can't Process {DocType HTML Tracked} Try Again ", TimeSpan.FromSeconds(10));
-
-                    exe.ToString();
+                    UserDialogs.Instance.Toast("Could not process request. Please try again.");
+                    System.Diagnostics.Debug.WriteLine($"Cashout error: {ex.Message}");
                 }
-
-
-
-
-                ////call osoftpay for agent list
-                //string url = "https://collection.osoftpay.net/api/S_CashOutCall";
-                //try
-                //{
-                //    var nvc = new List<KeyValuePair<string, string>>();
-                //    nvc.Add(new KeyValuePair<string, string>("Agent", email));
-
-                //    var client = new HttpClient();
-
-                //    client.DefaultRequestHeaders.Add("Super_Agent", LoginPage.Token);
-                //    client.DefaultRequestHeaders.Add("TradingPin", Password.Text);
-                //    var req = new HttpRequestMessage(HttpMethod.Post, url) { Content = new FormUrlEncodedContent(nvc) };
-
-                //    var res = await client.SendAsync(req);
-
-                //    var resultString = await res.Content.ReadAsStringAsync();
-                //    var CashOutResponse = JsonConvert.DeserializeObject<CashOutResponse>(resultString);
-
-                //    if (CashOutResponse.status != "00")
-                //    {
-
-                //        await DisplayAlert("NOTIFICATION", CashOutResponse.message, "TRY AGAIN");
-
-                //        await Navigation.PushAsync(new Views.CashoutPage());
-
-                //    }
-                //    else
-                //    {
-                //        await DisplayAlert("NOTIFICATION", CashOutResponse.message + "For This Amount :" + CashOutResponse.details.amountReceived, "THANK YOU");
-                //        await Navigation.PushAsync(new Views.CashoutPage());
-
-                //    }
-                //}
-
-                //catch (Exception exe)
-                //{
-                //    UserDialogs.Instance.Toast(" Can't Process {DocType HTML Tracked} Try Again ", TimeSpan.FromSeconds(10));
-
-                //    exe.ToString();
-                //}
-
             }
-
         }
-
 
         internal class CashOutResponse
         {
-
-
             public string status { get; set; }
             public string message { get; set; }
             public Details details { get; set; }
@@ -156,6 +70,5 @@ namespace ISEP.Views
             public string amountReceived { get; set; }
             public string agent { get; set; }
         }
-
     }
 }

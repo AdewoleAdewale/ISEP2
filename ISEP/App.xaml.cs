@@ -1,69 +1,74 @@
-﻿using ISEP.Services;
+﻿using System;
+using System.Threading.Tasks;
 using Xamarin.Forms;
+using ISEP.Views;
+using ISEP.Services;
 
 namespace ISEP
 {
     public partial class App : Application
     {
         public static bool IsUserLoggedIn { get; set; }
-   
+        public static string RevenueServiceName { get; set; } = BrandConfig.OrganisationName;
+        public static string PrinterFooter { get; set; } = BrandConfig.ReceiptFooterLine1;
+        public static string ThankYouMessage { get; set; } = BrandConfig.ReceiptFooterLine2;
 
-        public static string PrinterFooter => BrandConfig.ReceiptFooterLine2;
-        public static string RevenueServiceName => BrandConfig.OrganisationName + " (" + BrandConfig.OrganisationAbbr + ") ";
-        public static string CentralPortalURL => BrandConfig.CentralCollectUrl;
-        public static string CentralPortalURLkeke { get; set; }
-        public static string ThankYouMessage => "CONTACT US : " + BrandConfig.SupportPhone1 + "," + BrandConfig.SupportPhone2;
-
-        /// <summary>Shared printer service. Prefer <see cref="ReceiptPrinter"/> over calling this directly.</summary>
+        // Print Job Manager instance accessible globally
+        public static PrintJobManager PrintJobManager { get; private set; }
         public static IPrinterService Printer { get; private set; }
 
-        /// <summary>Durable print job queue. Prefer <see cref="ReceiptPrinter"/>.</summary>
-        public static PrintJobManager PrintJobManager { get; private set; }
-
-        /// <summary>
-        /// Called by each platform head (MainActivity on Android) BEFORE
-        /// LoadApplication to inject the platform printer implementation.
-        /// The shared project no longer references Android assemblies.
-        /// </summary>
-        public static void InitializePrinting(IPrinterService printer)
-        {
-            Printer = printer ?? new MockPrinterService();
-            PrintJobManager = new PrintJobManager(Printer);
-        }
         public App()
         {
             InitializeComponent();
-            if (Printer == null)
-                InitializePrinting(new MockPrinterService());
 
-            MainPage = new Views.LoginPage();
-            //if (!Properties.TryGetValue("first_time", out object value))
-            //{
-            //    Properties.Add("first_time", true);
-            //    Current.SavePropertiesAsync();
-            //    MainPage = new NavigationPage(new MainPage());
-            //}
+            // Configure API SSL Settings globally
+            ApiClient.ConfigureSSL();
 
-            //else if (!Properties.TryGetValue("not_first", out object values))
-            //{
-            //    Properties.Add("not_first", true);
-            //    Current.SavePropertiesAsync();
-            //    MainPage = new Views.LoginPage();
+            // Initialize Printer Service Pipeline
+            Printer = new MockPrinterService(); // Replace with your native BluetoothPrinterService instance in Android project
+            PrintJobManager = new PrintJobManager(Printer);
 
-
-            //}
+            // Check for Auto-Login Session
+            if (SessionService.TryAutoLogin())
+            {
+                IsUserLoggedIn = true;
+                MainPage = new NavigationPage(new Dashboard());
+            }
+            else
+            {
+                IsUserLoggedIn = false;
+                MainPage = new NavigationPage(new LoginPage());
+            }
         }
 
-        protected override void OnStart()
+        protected override async void OnStart()
         {
+            base.OnStart();
+            await ProcessPendingPrintJobsAsync();
+        }
+
+        protected override async void OnResume()
+        {
+            base.OnResume();
+            await ProcessPendingPrintJobsAsync();
+        }
+
+        private async Task ProcessPendingPrintJobsAsync()
+        {
+            try
+            {
+                // Retry any receipts queued during network or printer connection loss
+                await ReceiptPrinter.RetryPendingAsync();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error processing pending print jobs: {ex.Message}");
+            }
         }
 
         protected override void OnSleep()
         {
-        }
-
-        protected override void OnResume()
-        {
+            base.OnSleep();
         }
     }
 }

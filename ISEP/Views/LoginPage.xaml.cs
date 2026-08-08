@@ -36,8 +36,8 @@ namespace ISEP.Views
 
         private async void Button_Clicked(object sender, EventArgs e)
         {
-            string MyEmail = Email.Text;
-            string MyPassword = Password.Text;
+            string MyEmail = EmailEntry.Text;
+            string MyPassword = PasswordEntry.Text;
 
             using (UserDialogs.Instance.Loading("Connecting to Service, Please Wait...", null, null, true, MaskType.Gradient))
             {

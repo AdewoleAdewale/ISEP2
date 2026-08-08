@@ -1,284 +1,46 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
-             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml" xmlns:renderers="clr-namespace:ISEP.Randerers" xmlns:local="clr-namespace:ISEP" xmlns:yummy="clr-namespace:Xamarin.Forms.PancakeView;assembly=Xamarin.Forms.PancakeView"
-             x:Class="ISEP.Views.CashoutPage"  Padding="0,10,0,0"
-    BackgroundColor="#032D6E"
-    NavigationPage.HasNavigationBar="True">
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:yummy="clr-namespace:Xamarin.Forms.PancakeView;assembly=Xamarin.Forms.PancakeView"
+             x:Class="ISEP.Views.CashoutPage"
+             Title="Agent Cashout"
+             BackgroundColor="#0A192F">
 
+    <ScrollView HorizontalOptions="FillAndExpand" VerticalOptions="FillAndExpand">
+        <StackLayout Padding="20" Spacing="20">
+            <Label Text="AGENT CASHOUT BALANCE" TextColor="White" FontSize="18" FontAttributes="Bold" HorizontalTextAlignment="Center"/>
 
+            <!-- Balance Display Card -->
+            <yummy:PancakeView BackgroundColor="#1E3A8A" CornerRadius="16" Padding="20" HasShadow="True" Elevation="6">
+                <StackLayout Spacing="8" HorizontalOptions="Center">
+                    <Label Text="AVAILABLE CASHOUT BALANCE" TextColor="#93C5FD" FontSize="12" FontAttributes="Bold" HorizontalTextAlignment="Center"/>
+                    <Label x:Name="CashoutBalance" TextColor="White" FontSize="32" FontAttributes="Bold" HorizontalTextAlignment="Center"/>
 
-    <ContentPage.Content>
-   
+                    <BoxView HeightRequest="1" BackgroundColor="#3B82F6" Margin="0,5"/>
 
-            <StackLayout>
-              
-                <yummy:PancakeView
-                Margin="0,20,0,0"
-                Padding="20,10,20,20"
-                BackgroundColor="White"
-                CornerRadius="10,10,0,0"
-                VerticalOptions="FillAndExpand">
-                    <StackLayout Spacing="5">
+                    <StackLayout Orientation="Horizontal" Spacing="10" HorizontalOptions="Center">
+                        <Label x:Name="Agentname" TextColor="White" FontSize="13"/>
+                        <Label Text="•" TextColor="#93C5FD"/>
+                        <Label x:Name="AgentSupervisor" TextColor="White" FontSize="13"/>
+                    </StackLayout>
+                </StackLayout>
+            </yummy:PancakeView>
 
+            <!-- Processing Form Card -->
+            <yummy:PancakeView BackgroundColor="White" CornerRadius="16" Padding="20" HasShadow="True" Elevation="6">
+                <StackLayout Spacing="15">
+                    <Label Text="Input your transaction PIN to process cashout. Minimum cashout amount is ₦500." TextColor="#DC2626" FontSize="12" HorizontalTextAlignment="Center"/>
 
-                    <Label
-                     Margin="0,30,0,0"
-                    FontAttributes="Bold"
-                    FontSize="20"
-                    Text="AGENT  CASHOUT BALANCE "
-                    TextColor="#032D6E"
-                    HorizontalTextAlignment="Center" >
-
-                    </Label>
-
-                 
-
-                    <!--<yummy:PancakeView  CornerRadius="10"  VerticalOptions="StartAndExpand"    BackgroundColor="Transparent" 
-                                        BorderGradientEndColor="#032d6e" Margin="5,10,5,10"
-                 BorderGradientStartColor="#2575fc" BackgroundGradientStartColor="#2575fc" HasShadow="False"
-                 BackgroundGradientAngle="180" BackgroundGradientEndColor="#032d6e"  BorderColor="Transparent" 
-                                        Elevation="5" BorderThickness="1" HorizontalOptions="FillAndExpand">
-                         
-                                <Grid ColumnSpacing="10" RowSpacing="0">
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="1"/>
-                                        <RowDefinition Height="80"/>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="60"/>
-                                    </Grid.RowDefinitions>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="*"/>
-                             
-                            </Grid.ColumnDefinitions>
-
-                                    -->
-                        <!--<Image Source="Borno"
-                           HeightRequest="70"
-                           Grid.Row="0"
-                                           Margin="0,10,10,0"
-                           Grid.Column="1"
-                           HorizontalOptions="EndAndExpand"/>-->
-
-                                    <!--<Label Text="SUPER AGENT"
-                           LineBreakMode="TailTruncation"
-                           FontSize="12"
-                                           FontAttributes="Bold"
-                           TextColor="White"
-                           Grid.Row="1"
-                           Grid.Column="0"
-                           Grid.ColumnSpan="2"/>--><!--
-
-
-                                <Image Source="male" Margin="10,5,0,0" Grid.Row="1" Grid.Column="0"
-                       Grid.ColumnSpan="1"  HeightRequest="50" WidthRequest="50" HorizontalOptions="StartAndExpand"></Image>
-
-                                <Label x:Name="AgentSupervisor"  FontSize="15" Margin="10,-5,0,0" TextColor="White"
-                        FontAttributes="Bold" Grid.Row="2" Grid.Column="0"  Grid.ColumnSpan="2"/>
-
-                                --><!--<Label Text="AGENT NAME"
-                           Margin="0,20,0,0"
-                           FontSize="12"
-                                           FontAttributes="Bold"
-                           TextColor="White"
-                           Grid.Row="3"
-                           Grid.Column="0"/>--><!--
-
-                            <Image Source="people"  Margin="10,0,0,-15" Grid.Row="3" HorizontalOptions="StartAndExpand"
-                     Grid.Column="0"   HeightRequest="50" WidthRequest="50"></Image>
-
-                            <Label x:Name="Agentname" FontSize="15" TextColor="White" FontAttributes="Bold" Margin="10,0,0,0"
-                   Grid.Row="4" Grid.Column="0"/>
-
-                                    --><!--<Label Text="AMOUNT"
-                            Margin="0,20,0,0"
-                           FontSize="12"
-                                       FontAttributes="Bold"
-                           TextColor="White"
-                           Grid.Row="3"
-                           Grid.Column="1"/>--><!--
-
-                            <Image Source="naira" Margin="10,10,10,10" HorizontalOptions="EndAndExpand" Grid.Row="3"
-                       Grid.Column="1"   HeightRequest="50" WidthRequest="50"></Image>
-
-                            <Label x:Name="CashoutBalance" FontSize="15" FontAttributes="Bold" HorizontalOptions="EndAndExpand" Margin="10,0,10,0"
-                       TextColor="White" Grid.Row="4"  Grid.Column="1"/>
-
-
-
-                                </Grid>
-                         
-                        </yummy:PancakeView>-->
-
-
-
-
-                    <StackLayout Spacing="10" Margin="10,10,10,10">
-
-                        <yummy:PancakeView Elevation="5" BorderThickness="5" BackgroundGradientAngle="0" BackgroundGradientStartColor="#005bea" BackgroundGradientEndColor="#00c6fb" 
-                  HorizontalOptions="FillAndExpand" Padding="10" VerticalOptions="FillAndExpand" WidthRequest="100" HeightRequest="200" CornerRadius="10">
-                            <StackLayout >
-                                <StackLayout Orientation="Horizontal" Spacing="2" Margin="0,5,0,0">
-                                    <Image Source="status" Aspect="AspectFit" HeightRequest="20"></Image>
-                                    <Label x:Name="AgentSupervisor" TextColor="White" FontSize="15" FontAttributes="Bold" HorizontalTextAlignment="End" HorizontalOptions="Start">
-                                    </Label>
-                                    
-                                </StackLayout>
-                                <Label Text="_______________________________________________________________" TextColor="White" Margin="0,-10,0,0" HorizontalOptions="StartAndExpand" VerticalOptions="StartAndExpand"></Label>
-
-                                <StackLayout Orientation="Horizontal" Spacing="1">
-
-                               
-                                    <yummy:PancakeView
-              BackgroundColor="Transparent" BackgroundGradientStartColor="LightSkyBlue"
-                    BackgroundGradientAngle="90" BackgroundGradientEndColor="LightSkyBlue"  BorderColor="Transparent"
-                     Elevation="5"
-                                        Opacity="0.8"
-                BorderThickness="1"
-                 Margin="0, 10,10,10"
-                HeightRequest="50"
-                CornerRadius="5"
-                HorizontalOptions="StartAndExpand"
-          VerticalOptions="StartAndExpand"
-                WidthRequest="200">
-                                        <Label
-                    FontAttributes="Bold"
-                    FontSize="20"
-                                            Margin="5"
-                    HorizontalOptions="FillAndExpand"
-                    x:Name="CashoutBalance" 
-                                          
-                    TextColor="Red"
-                    VerticalOptions="CenterAndExpand" >
-
-                                        </Label>
-                         
-
-                                    </yummy:PancakeView>
-
-                                    <Image Source="Borno" Aspect="AspectFit" HeightRequest="100" HorizontalOptions="EndAndExpand" Margin="0,-10,0,10"></Image>
-
-                                </StackLayout>
-                                <StackLayout Orientation="Horizontal"  HorizontalOptions="FillAndExpand" Margin="0,-15,0,0">
-                                    <Label Text="_______________________________________________________________" TextColor="White" HorizontalOptions="StartAndExpand" VerticalOptions="StartAndExpand"></Label>
-
-                                </StackLayout>
-                                <StackLayout Orientation="Horizontal" Spacing="2">
-                                    <Image Source="people" Aspect="AspectFit" HeightRequest="20"></Image>
-                                    <Label  x:Name="Agentname" FontAttributes="Bold"  FontSize="15" LineBreakMode="HeadTruncation" TextColor="White" HorizontalOptions="StartAndExpand" VerticalOptions="StartAndExpand" ></Label>
-
-                                </StackLayout>
-                            </StackLayout>
-
-
-                        </yummy:PancakeView>
-
+                    <StackLayout Spacing="6">
+                        <Label Text="TRANSACTION PIN" TextColor="#0F172A" FontSize="11" FontAttributes="Bold"/>
+                        <Frame BackgroundColor="#F8FAFC" BorderColor="#CBD5E1" CornerRadius="10" Padding="12,0" HeightRequest="48" HasShadow="False">
+                            <Entry x:Name="Password" IsPassword="True" Keyboard="Numeric" MaxLength="4" Placeholder="4-digit PIN" TextColor="#0F172A" FontSize="14"/>
+                        </Frame>
                     </StackLayout>
 
-
-
-
-                 
-
-                    <StackLayout Spacing="5" Margin="0,0,0,10" Padding="10,10,10,10">
-
-                        <Label
-                     
-                    FontAttributes="Bold"
-                    FontSize="12"
-                    Text="Kindly Input Your Transaction Pin To Process Cashout And Lastly The Minimum Amount You Can Process For Cashout Is 500naira. "
-                    TextColor="Red"
-                    HorizontalTextAlignment="Center" >
-
-                        </Label>
-                     
-
-
-
-                        <Frame
-                        Margin="0,10,0,15"
-                        Padding="0"
-                        BackgroundColor="WhiteSmoke"
-                        CornerRadius="5"
-                                HeightRequest="40"
-                        HasShadow="True">
-                                <StackLayout HorizontalOptions="FillAndExpand" Orientation="Horizontal">
-                                    <renderers:BorderlessEntry
-                                FontSize="12"
-                                Placeholder="Input Your Pin Here"
-                                 x:Name="Password"  
-                                 Keyboard="Numeric"
-                                        MaxLength="4"
-                                  PlaceholderColor="LightGray"
-                              TextColor="#484848"
-                                Margin="10,0,10,0"
-                                FontFamily="Regular"
-                                HorizontalOptions="FillAndExpand"
-                                  IsPassword="{Binding Source={x:Reference ShowPasswordActualTrigger}, Path=HidePassword}"
-                           />
-                                    <Frame
-                                Margin="10,0"
-                                Padding="0"
-                                BackgroundColor="Transparent"
-                                HeightRequest="20"
-                                WidthRequest="20">
-                                        <ImageButton VerticalOptions="Center"
-                                   HeightRequest="20"
-                                     HorizontalOptions="End"
-                                   Source="icons8eyes">
-                                            <ImageButton.Triggers>
-                                                <EventTrigger Event="Clicked">
-                                                    <local:ShowPasswordTriggerAction ShowIcon="Openeyes"
-                                                              HideIcon="icons8eyes"
-                                                              x:Name="ShowPasswordActualTrigger"/>
-                                                </EventTrigger>
-                                            </ImageButton.Triggers>
-                                        </ImageButton>
-
-                                    </Frame>
-
-                                </StackLayout>
-
-                            </Frame>
-
-                            <yummy:PancakeView
-              BackgroundColor="Transparent" BackgroundGradientStartColor="#032d6e"
-                    BackgroundGradientAngle="45" BackgroundGradientEndColor="#2575fc"  BorderColor="Transparent"
-                     Elevation="5"
-                BorderThickness="1"
-       
-                HasShadow="True"
-                 Margin="0, 30, 0, 0"
-                HeightRequest="55"
-                CornerRadius="10"
-                HorizontalOptions="FillAndExpand"
-                WidthRequest="150">
-                                <Label
-                    FontAttributes="Bold"
-                    FontSize="17"
-                    HorizontalOptions="CenterAndExpand"
-                    Text="PROCESS CASHOUT "
-                    TextColor="White"
-                    VerticalOptions="CenterAndExpand" >
-
-                                </Label>
-                                <yummy:PancakeView.GestureRecognizers>
-                                    <TapGestureRecognizer Tapped="Button_Clicked" ></TapGestureRecognizer>
-                                </yummy:PancakeView.GestureRecognizers>
-
-
-
-                            </yummy:PancakeView>
-
-                        </StackLayout>
-
-
-
-                    </StackLayout>
-
-                </yummy:PancakeView>
-            </StackLayout>
-      
-    </ContentPage.Content>
+                    <Button Text="PROCESS CASHOUT" BackgroundColor="#059669" TextColor="White" FontAttributes="Bold" CornerRadius="10" HeightRequest="48" Margin="0,10,0,0" Clicked="ProcessCashout_Clicked"/>
+                </StackLayout>
+            </yummy:PancakeView>
+        </StackLayout>
+    </ScrollView>
 </ContentPage>
