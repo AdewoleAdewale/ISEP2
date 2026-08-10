@@ -8,7 +8,6 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using static Android.Provider.SyncStateContract;
 
 namespace ISEP.Services
 {
@@ -113,7 +112,7 @@ namespace ISEP.Services
             };
         }
 
-   
+
 
         public static async Task<T> GetAsync<T>(string url)
         {
@@ -135,7 +134,7 @@ namespace ISEP.Services
             var json = await response.Content.ReadAsStringAsync();
             return JsonConvert.DeserializeObject<TResponse>(json);
         }
-    
+
 
         /// <summary>GET a URL and deserialise the JSON body to T. Throws on non-success.</summary>
         public static async Task<T> GetJsonAsync<T>(string url, CancellationToken ct = default)
