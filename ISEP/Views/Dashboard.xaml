@@ -40,7 +40,7 @@
 
                         <!-- Top Navigation Bar -->
                         <Grid ColumnDefinitions="48,*,48" ColumnSpacing="8" Margin="0,0,0,20">
-                            <yummy:PancakeView Grid.Column="0" BackgroundColor="#1EFFFFFF"
+                            <yummy:PancakeView Grid.Column="0" BackgroundColor="White"
                                                CornerRadius="12" WidthRequest="48" HeightRequest="48">
                                 <Image Source="hamburger" WidthRequest="20" HeightRequest="20" HorizontalOptions="Center" VerticalOptions="Center"/>
                             </yummy:PancakeView>
@@ -114,7 +114,7 @@
                         <!-- PROCESS PAYMENT -->
                         <yummy:PancakeView Grid.Column="0" BackgroundColor="White" CornerRadius="16" HasShadow="True" Elevation="4" Padding="10,16">
                             <StackLayout Spacing="8" VerticalOptions="Center">
-                                <Label Text="💳" FontSize="24" HorizontalOptions="Center"/>
+                                <Image Source="payment" HeightRequest="40" HorizontalOptions="Center"/>
                                 <Label Text="PAYMENT" FontSize="9" FontAttributes="Bold" TextColor="#0F172A" HorizontalTextAlignment="Center"/>
                             </StackLayout>
                             <yummy:PancakeView.GestureRecognizers>
@@ -125,7 +125,7 @@
                         <!-- VERIFY RRR -->
                         <yummy:PancakeView Grid.Column="1" BackgroundColor="White" CornerRadius="16" HasShadow="True" Elevation="4" Padding="10,16">
                             <StackLayout Spacing="8" VerticalOptions="Center">
-                                <Label Text="🔍" FontSize="24" HorizontalOptions="Center"/>
+                                <Image Source="verify" HeightRequest="40" HorizontalOptions="Center"/>
                                 <Label Text="VERIFY RRR" FontSize="9" FontAttributes="Bold" TextColor="#0F172A" HorizontalTextAlignment="Center"/>
                             </StackLayout>
                             <yummy:PancakeView.GestureRecognizers>
@@ -136,7 +136,7 @@
                         <!-- REPORTS -->
                         <yummy:PancakeView Grid.Column="2" BackgroundColor="White" CornerRadius="16" HasShadow="True" Elevation="4" Padding="10,16">
                             <StackLayout Spacing="8" VerticalOptions="Center">
-                                <Label Text="📊" FontSize="24" HorizontalOptions="Center"/>
+                                <Image Source="make" HeightRequest="40" HorizontalOptions="Center"/>
                                 <Label Text="HISTORY" FontSize="9" FontAttributes="Bold" TextColor="#0F172A" HorizontalTextAlignment="Center"/>
                             </StackLayout>
                             <yummy:PancakeView.GestureRecognizers>
@@ -196,7 +196,7 @@
                                     <yummy:PancakeView BackgroundColor="White" Margin="0,0,0,10" CornerRadius="12" HasShadow="True" Elevation="3" Padding="12">
                                         <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
                                             <Label Grid.Row="0" Grid.Column="0" Text="{Binding payer_Name}" FontAttributes="Bold" FontSize="13" TextColor="#0F172A" LineBreakMode="TailTruncation"/>
-                                            <Label Grid.Row="0" Grid.Column="1" Text="{Binding amount, StringFormat='₦{0:N0}'}" FontAttributes="Bold" FontSize="13" TextColor="#059669"/>
+                                            <Label Grid.Row="0" Grid.Column="1" Text="{Binding amount, StringFormat='₦{0:N0}'}" FontAttributes="Bold" FontSize="13" TextColor="#1E3A8A"/>
 
                                             <Label Grid.Row="1" Grid.Column="0" Text="{Binding service_Name}" FontSize="11" TextColor="#64748B"/>
                                             <Label Grid.Row="1" Grid.Column="1" Text="{Binding status}" FontSize="10" FontAttributes="Bold" TextColor="#D97706"/>
@@ -216,7 +216,7 @@
                             <Label Text="HARDWARE DIAGNOSTICS" FontSize="10" FontAttributes="Bold" TextColor="#0F172A"/>
                             <Label Text="Test Bluetooth ESC/POS printer status" FontSize="10" TextColor="#64748B"/>
                         </StackLayout>
-                        <Button Grid.Column="1" Text="TEST PRINTER" BackgroundColor="#059669" TextColor="White" FontAttributes="Bold" FontSize="11" CornerRadius="8" HeightRequest="36" Clicked="TestPrinter_Clicked"/>
+                        <Button Grid.Column="1" Text="TEST PRINTER" BackgroundColor="#1E3A8A" TextColor="White" FontAttributes="Bold" FontSize="11" CornerRadius="8" HeightRequest="36" Clicked="TestPrinter_Clicked"/>
                     </Grid>
                 </yummy:PancakeView>
 

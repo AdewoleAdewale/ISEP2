@@ -9,7 +9,7 @@
     <ContentPage.Resources>
         <ResourceDictionary>
             <Style x:Key="PrimaryButtonStyle" TargetType="Button">
-                <Setter Property="BackgroundColor" Value="#059669" />
+                <Setter Property="BackgroundColor" Value="#1E3A8A" />
                 <Setter Property="TextColor" Value="White" />
                 <Setter Property="CornerRadius" Value="12" />
                 <Setter Property="HeightRequest" Value="52" />
@@ -83,7 +83,7 @@
             <ActivityIndicator x:Name="LoadingIndicator"
                                IsVisible="False"
                                IsRunning="False"
-                               Color="#059669"
+                               Color="#1E3A8A"
                                Scale="1.5" />
             <Label Text="Processing Payment..."
                    TextColor="White"
@@ -154,7 +154,7 @@
                                    FontSize="12" 
                                    FontAttributes="Bold" 
                                    HorizontalTextAlignment="Center"
-                                   TextColor="#059669" />
+                                   TextColor="#1E3A8A" />
                         </StackLayout>
 
                         <!-- Invoice / RRR Input -->

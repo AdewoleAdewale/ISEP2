@@ -1,5 +1,6 @@
 ﻿using Acr.UserDialogs;
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
@@ -33,11 +34,19 @@ namespace ISEP.Views
                     var payload = new { Agent = LoginPage.ValidUserMail };
                     string url = "https://collection.osoftpay.net/api/S_CashOutCall";
 
-                    var client = ApiClient.CreateClient();
-                    client.DefaultRequestHeaders.Add("Super_Agent", LoginPage.Token);
-                    client.DefaultRequestHeaders.Add("TradingPin", Password.Text);
+                    // BUG FIX: the old code built a throwaway client, put
+                    // the auth headers on THAT client, then posted with
+                    // ApiClient.PostAsync (which uses the shared client).
+                    // The headers were never sent, so every cashout was
+                    // rejected as unauthenticated — and the throwaway
+                    // client was never disposed.
+                    var headers = new Dictionary<string, string>
+                    {
+                        { "Super_Agent", LoginPage.Token },
+                        { "TradingPin", Password.Text?.Trim() }
+                    };
 
-                    var response = await ApiClient.PostAsync<CashOutResponse>(url, payload);
+                    var response = await ApiClient.PostAsync<CashOutResponse>(url, payload, headers);
 
                     if (response != null && response.status == "00")
                     {
@@ -51,8 +60,8 @@ namespace ISEP.Views
                 }
                 catch (Exception ex)
                 {
-                    UserDialogs.Instance.Toast("Could not process request. Please try again.");
-                    System.Diagnostics.Debug.WriteLine($"Cashout error: {ex.Message}");
+                    UserDialogs.Instance.Toast(ApiClient.FriendlyMessage(ex));
+                    System.Diagnostics.Debug.WriteLine($"[Cashout] {ex}");
                 }
             }
         }

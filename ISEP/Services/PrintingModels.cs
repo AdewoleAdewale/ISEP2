@@ -3,7 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using Xamarin.Essentials;
-using static Android.Provider.SyncStateContract;
 
 namespace ISEP.Services
 {

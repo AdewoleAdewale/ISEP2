@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ═══════════════════════════════════════════════════════════════════
+   ANDROID PLATFORM HALF OF THE TLS POLICY.
+
+   ApiClient.cs governs the managed side. This file governs what the
+   Android OS itself will permit, and it wins on Android 7.0+ (API 24)
+   regardless of what managed code asks for.
+
+   Referenced from AndroidManifest.xml via:
+       android:networkSecurityConfig="@xml/network_security_config"
+
+   Place at: ISEP.Android/Resources/xml/network_security_config.xml
+   Build Action: AndroidResource
+  ═══════════════════════════════════════════════════════════════════
+-->
+<network-security-config>
+
+  <!--
+    App-wide default: HTTPS only. cleartextTrafficPermitted="false"
+    means a plain http:// URL slipping into a build fails loudly at the
+    transport layer instead of silently sending a taxpayer's PIN in the
+    clear.
+  -->
+  <base-config cleartextTrafficPermitted="false">
+    <trust-anchors>
+      <certificates src="system" />
+      <!--
+        user CAs are deliberately NOT trusted in the base config.
+        Trusting them lets anyone with device admin (or a
+        corporate/malware profile) MITM a payments app.
+      -->
+    </trust-anchors>
+  </base-config>
+
+  <!--
+    The API hosts. Both are HTTPS so no cleartext exception is needed.
+    includeSubdomains covers any future api.* / collect.* subdomain.
+  -->
+  <domain-config cleartextTrafficPermitted="false">
+    <domain includeSubdomains="true">osoftpay.net</domain>
+    <trust-anchors>
+      <certificates src="system" />
+    </trust-anchors>
+
+    <!--
+      ─────────────────────────────────────────────────────────────
+       CERTIFICATE PINNING — LEAVE COMMENTED UNTIL YOU HAVE THE HASH.
+
+       Pinning is the correct end state for a payments app, but a
+       wrong or expired pin bricks every installed copy until the
+       next store release. Enable only when you have a documented
+       rotation plan and a backup pin.
+
+       Get the current hash with:
+         openssl s_client -servername borno.osoftpay.net \
+           -connect borno.osoftpay.net:443 | \
+           openssl x509 -pubkey -noout | \
+           openssl pkey -pubin -outform der | \
+           openssl dgst -sha256 -binary | openssl enc -base64
+
+       <pin-set expiration="2027-01-01">
+         <pin digest="SHA-256">PRIMARY_LEAF_OR_INTERMEDIATE_HASH=</pin>
+         <pin digest="SHA-256">BACKUP_KEY_HASH=</pin>
+       </pin-set>
+      ─────────────────────────────────────────────────────────────
+    -->
+  </domain-config>
+
+  <!--
+    Debug-only relaxation. Android ignores this block entirely in
+    release builds, so it cannot weaken production. It lets you point
+    at a staging server or run Charles/Fiddler while developing.
+  -->
+  <debug-overrides>
+    <trust-anchors>
+      <certificates src="system" />
+      <certificates src="user" />
+    </trust-anchors>
+  </debug-overrides>
+
+</network-security-config>

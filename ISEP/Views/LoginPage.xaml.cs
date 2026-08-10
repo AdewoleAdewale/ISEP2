@@ -3,7 +3,6 @@ using ISEP.Services;
 using Newtonsoft.Json;
 using System;
 using System.Net.Http;
-using System.Threading;
 using System.Threading.Tasks;
 using Xamarin.Essentials;
 using Xamarin.Forms;
@@ -136,33 +135,13 @@ namespace ISEP.Views
                            + "?UserName=" + Uri.EscapeDataString(email)
                            + "&Password=" + Uri.EscapeDataString(password);
 
-                string json;
-
                 // ── 4. Call the API ─────────────────────────────────
-                // await, never .Result. The old `.Result` blocked the UI
+                // Goes through the central ApiClient, so login uses the
+                // same TLS policy, timeout and retry as every other page.
+                // await, never .Result — the old `.Result` blocked the UI
                 // thread inside a Xamarin SynchronizationContext, which
                 // deadlocks and ANRs, and rethrows as AggregateException.
-                using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(45)))
-                using (HttpResponseMessage response = await ApiClient.Instance.GetAsync(url, cts.Token))
-                {
-                    if (!response.IsSuccessStatusCode)
-                    {
-                        System.Diagnostics.Debug.WriteLine(
-                            $"[Login] HTTP {(int)response.StatusCode} {response.ReasonPhrase}");
-
-                        loading?.Dispose();
-                        loading = null;
-
-                        await ShowAlertAsync(
-                            "SERVICE UNAVAILABLE",
-                            $"The server returned an error ({(int)response.StatusCode}). " +
-                            $"Please try again shortly.\n\n{SupportLine}",
-                            "TRY AGAIN");
-                        return;
-                    }
-
-                    json = await response.Content.ReadAsStringAsync();
-                }
+                string json = await ApiClient.GetStringAsync(url);
 
                 // ── 5. Parse ────────────────────────────────────────
                 // A gateway timeout or WAF block returns an HTML page, not
@@ -268,10 +247,25 @@ namespace ISEP.Views
 
                 await NavigateToDashboardAsync();
             }
+            catch (ApiException aex)
+            {
+                // Non-success status or unreadable body, already retried
+                // by ApiClient. StatusCode/ResponseBody are available for
+                // logging without re-parsing strings.
+                System.Diagnostics.Debug.WriteLine($"[Login] ApiException {aex.StatusCode}: {aex.Message}");
+
+                loading?.Dispose();
+                loading = null;
+
+                await ShowAlertAsync(
+                    "SIGN IN FAILED",
+                    $"{ApiClient.FriendlyMessage(aex)}\n\n{SupportLine}",
+                    "TRY AGAIN");
+            }
             catch (OperationCanceledException)
             {
-                // Covers TaskCanceledException from both the 45s token
-                // above and HttpClient's own Timeout.
+                // Covers TaskCanceledException from the per-request
+                // timeout inside ApiClient.
                 System.Diagnostics.Debug.WriteLine("[Login] Request timed out.");
 
                 loading?.Dispose();
