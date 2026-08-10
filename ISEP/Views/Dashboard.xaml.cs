@@ -16,6 +16,7 @@ namespace ISEP.Views
     {
         private CancellationTokenSource _cts;
         private bool _isBusy = false;
+        private bool _balanceVisible = true;
 
         public static string superAgent { get; set; }
         public static string agent { get; set; }
@@ -30,6 +31,7 @@ namespace ISEP.Views
         {
             base.OnAppearing();
             PopulateIdentity();
+            PopulateWallet();
             _ = LoadTransactionsAsync();
         }
 
@@ -43,7 +45,10 @@ namespace ISEP.Views
         {
             try
             {
-                AgentNameLabel.Text = string.IsNullOrWhiteSpace(LoginPage.Name) ? LoginPage.ValidUserMail : LoginPage.Name;
+                // The API pads these values ("TESTING  WALLET ") — collapse
+                // the whitespace or the layout shows a ragged trailing gap.
+                string agent = Clean(LoginPage.Name);
+                AgentNameLabel.Text = string.IsNullOrWhiteSpace(agent) ? Clean(LoginPage.ValidUserMail) : agent;
                 MdaLabel.Text = BrandConfig.OrganisationName;
                 WelcomeLabel.Text = GetGreeting();
             }
@@ -59,6 +64,143 @@ namespace ISEP.Views
             if (h < 12) return "Good morning 🌅";
             if (h < 17) return "Good afternoon ☀️";
             return "Good evening 🌙";
+        }
+
+        // ════════════════════════════════════════════════════════
+        //  WALLET / ACCOUNT DETAILS
+        //  Source: the `detail` object from SagentLogin, parked on the
+        //  LoginPage statics. Nothing here re-hits the network.
+        // ════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Collapses the double/trailing spaces the API sends back
+        /// ("TESTING  WALLET ") into single-spaced, trimmed text.
+        /// </summary>
+        private static string Clean(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+            return System.Text.RegularExpressions.Regex.Replace(value.Trim(), @"\s+", " ");
+        }
+
+        /// <summary>
+        /// The balance arrives pre-formatted ("73,176.30"), so it is NOT
+        /// re-parsed — parsing it with the device locale would read the
+        /// comma as a decimal separator and show ₦73.18.
+        /// </summary>
+        private static string FormatBalance(string raw)
+        {
+            string v = Clean(raw);
+            if (string.IsNullOrEmpty(v)) return "₦0.00";
+            return v.StartsWith("₦") ? v : "₦" + v;
+        }
+
+        private void PopulateWallet()
+        {
+            try
+            {
+                AccountNameLabel.Text = string.IsNullOrEmpty(Clean(LoginPage.Super_Agent))
+                    ? Clean(LoginPage.Name)
+                    : Clean(LoginPage.Super_Agent);
+
+                BankLabel.Text = string.IsNullOrEmpty(Clean(LoginPage.Banks))
+                    ? "—"
+                    : Clean(LoginPage.Banks);
+
+                AccountNumberLabel.Text = string.IsNullOrEmpty(Clean(LoginPage.accountnumbers))
+                    ? "—"
+                    : Clean(LoginPage.accountnumbers);
+
+                _balanceVisible = true;
+                BalanceLabel.Text = FormatBalance(LoginPage.accountbalance);
+                BalanceToggle.Text = "🙈";
+
+                ApplyTradingStatus(Clean(LoginPage.tradingstatus));
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Dashboard] PopulateWallet: {ex}");
+            }
+        }
+
+        private void ApplyTradingStatus(string status)
+        {
+            if (string.IsNullOrEmpty(status)) status = "UNKNOWN";
+
+            TradingStatusLabel.Text = status.ToUpperInvariant();
+
+            bool active = status.Equals("Active", StringComparison.OrdinalIgnoreCase);
+
+            // Amber, not red — an inactive wallet is a state to notice,
+            // not an error the officer caused.
+            StatusBadge.BackgroundColor = active ? Color.FromHex("#DCFCE7") : Color.FromHex("#FEF3C7");
+            TradingStatusLabel.TextColor = active ? Color.FromHex("#059669") : Color.FromHex("#B45309");
+        }
+
+        private void OnToggleBalanceTapped(object sender, EventArgs e)
+        {
+            try
+            {
+                _balanceVisible = !_balanceVisible;
+                BalanceLabel.Text = _balanceVisible ? FormatBalance(LoginPage.accountbalance) : "₦ ••••••";
+                BalanceToggle.Text = _balanceVisible ? "🙈" : "👁️";
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Dashboard] ToggleBalance: {ex.Message}");
+            }
+        }
+
+        // ── Clipboard ───────────────────────────────────────────────
+
+        private async void OnCopyAccountNumberTapped(object sender, EventArgs e)
+        {
+            string acct = Clean(LoginPage.accountnumbers);
+
+            if (string.IsNullOrEmpty(acct))
+            {
+                UserDialogs.Instance.Toast("No account number available.");
+                return;
+            }
+
+            await CopyAsync(acct, $"Account number {acct} copied");
+        }
+
+        private async void OnCopyDetailsTapped(object sender, EventArgs e)
+        {
+            string acct = Clean(LoginPage.accountnumbers);
+
+            if (string.IsNullOrEmpty(acct))
+            {
+                UserDialogs.Instance.Toast("No account details available.");
+                return;
+            }
+
+            // Bank / number / name, in the order a Nigerian transfer form
+            // asks for them — so the whole block can be pasted into chat.
+            string block =
+                $"Bank: {Clean(LoginPage.Banks)}\n" +
+                $"Account Number: {acct}\n" +
+                $"Account Name: {(string.IsNullOrEmpty(Clean(LoginPage.Super_Agent)) ? Clean(LoginPage.Name) : Clean(LoginPage.Super_Agent))}";
+
+            await CopyAsync(block, "Account details copied");
+        }
+
+        /// <summary>
+        /// Clipboard access is a platform call and throws on some OEM
+        /// builds. It is never worth crashing the dashboard over a copy.
+        /// </summary>
+        private async Task CopyAsync(string text, string confirmation)
+        {
+            try
+            {
+                await Xamarin.Essentials.Clipboard.SetTextAsync(text);
+                UserDialogs.Instance.Toast(confirmation);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Dashboard] Clipboard: {ex}");
+                UserDialogs.Instance.Toast("Could not copy to clipboard.");
+            }
         }
 
         private async Task LoadTransactionsAsync()
@@ -148,6 +290,10 @@ namespace ISEP.Views
         private async void OnTaxReportTapped(object sender, EventArgs e) => await Navigation.PushAsync(new Views.History());
         private async void OnInvoiceHistoryTapped(object sender, EventArgs e) => await Navigation.PushAsync(new Views.History());
         private async void OnTxnRetryTapped(object sender, EventArgs e) => await LoadTransactionsAsync();
+
+        private async void OnCashoutTapped(object sender, EventArgs e) => await Navigation.PushAsync(new Views.CashoutPage());
+        private async void OnChangePinTapped(object sender, EventArgs e) => await Navigation.PushAsync(new Views.ChangePin());
+        private async void OnChangePasswordTapped(object sender, EventArgs e) => await Navigation.PushAsync(new Views.ChangePassword());
 
         private async void TestPrinter_Clicked(object sender, EventArgs e)
         {

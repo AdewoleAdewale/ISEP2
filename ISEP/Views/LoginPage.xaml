@@ -16,7 +16,7 @@
             </StackLayout>
 
             <!-- Form Container -->
-            <yummy:PancakeView BackgroundColor="White" CornerRadius="20" Padding="25" HasShadow="True" Elevation="8">
+            <yummy:PancakeView BackgroundColor="Transparent" CornerRadius="20" Padding="15" >
                 <StackLayout Spacing="18">
                     <!-- Email Input -->
                     <StackLayout Spacing="6">
@@ -40,17 +40,17 @@
                     <!-- Checkboxes -->
                     <StackLayout Spacing="10" Margin="0,5">
                         <StackLayout Orientation="Horizontal" Spacing="10">
-                            <CheckBox x:Name="RememberMeCheck" Color="#059669" IsChecked="{Binding IsRememberMe}"/>
+                            <CheckBox x:Name="RememberMeCheck" Color="#1E3A8A" IsChecked="{Binding IsRememberMe}"/>
                             <Label Text="Remember Me (Auto Login)" TextColor="#475569" FontSize="13" VerticalOptions="Center"/>
                         </StackLayout>
                         <StackLayout Orientation="Horizontal" Spacing="10">
-                            <CheckBox x:Name="RememberPasswordCheck" Color="#059669" IsChecked="{Binding IsRememberPassword}"/>
+                            <CheckBox x:Name="RememberPasswordCheck" Color="#1E3A8A" IsChecked="{Binding IsRememberPassword}"/>
                             <Label Text="Remember My Password" TextColor="#475569" FontSize="13" VerticalOptions="Center"/>
                         </StackLayout>
                     </StackLayout>
 
                     <!-- Submit Button -->
-                    <Button Text="SIGN IN" BackgroundColor="#059669" TextColor="White" FontAttributes="Bold" CornerRadius="10" HeightRequest="50" Clicked="Button_Clicked"/>
+                    <Button Text="SIGN IN" BackgroundColor="#1E3A8A" TextColor="White" FontAttributes="Bold" CornerRadius="10" HeightRequest="50" Clicked="Button_Clicked"/>
                 </StackLayout>
             </yummy:PancakeView>
 
