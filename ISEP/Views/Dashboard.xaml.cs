@@ -30,6 +30,7 @@ namespace ISEP.Views
         protected override void OnAppearing()
         {
             base.OnAppearing();
+            SessionService.EnsureSessionRestored();
             PopulateIdentity();
             PopulateWallet();
             _ = LoadTransactionsAsync();

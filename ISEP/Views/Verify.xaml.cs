@@ -48,6 +48,12 @@ namespace ISEP.Views
             }
         }
 
+        protected override void OnAppearing()
+        {
+            base.OnAppearing();
+            SessionService.EnsureSessionRestored();
+        }
+
         private async void CallVerifyFare()
         {
             if (string.IsNullOrWhiteSpace(refno.Text))

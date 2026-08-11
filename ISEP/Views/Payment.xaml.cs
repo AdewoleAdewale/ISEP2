@@ -122,10 +122,19 @@ namespace ISEP.Views
         protected override void OnAppearing()
         {
             base.OnAppearing();
-            try { _isSheetClosed = false; }
+            try
+            {
+                _isSheetClosed = false;
+                SessionService.EnsureSessionRestored();
+
+                // Ensure token auto-fills if navigated from Verify screen
+                if (string.IsNullOrEmpty(inputtoken.Text) && !string.IsNullOrEmpty(Verify.paymentRefs))
+                {
+                    inputtoken.Text = Verify.paymentRefs;
+                }
+            }
             catch (Exception ex) { HandleException(ex, "OnAppearing"); }
         }
-
         protected override void OnDisappearing()
         {
             base.OnDisappearing();
@@ -299,9 +308,16 @@ namespace ISEP.Views
             try
             {
                 StopAutoCloseTimer();
+                SessionService.EnsureSessionRestored();
 
                 string invoiceToken = inputtoken.Text?.Trim() ?? "";
                 string selectedPaymentMethod = paymentmethod.SelectedItem?.ToString() ?? "Cash";
+
+                if (string.IsNullOrEmpty(LoginPage.ValidUserMail))
+                {
+                    ShowErrorMessage("User session invalid. Please log in again.");
+                    return;
+                }
 
                 var payload = new
                 {
@@ -320,11 +336,9 @@ namespace ISEP.Views
                 {
                     ShowSuccessMessage($"Payment successful for Ref: {invoiceToken}");
 
-                    // Construct Receipt Data using new Printing SDK models
                     var receipt = BuildReceiptData(paymentResponse, invoiceToken);
                     _lastReceiptData = receipt;
 
-                    // Execute Printing Pipeline
                     await AttemptPrintAsync(receipt, isReprint: false);
 
                     await Task.Delay(3000);
