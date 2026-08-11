@@ -313,7 +313,7 @@ namespace ISEP.Views
                 };
 
                 // Use central ApiClient for SSL safety
-                string url = $"{BrandConfig.ApiBaseUrl}/api/GPayments/Payment";
+                string url = $"{BrandConfig.ApiBaseUrl}/api/GPayments/v2/Payment";
                 var paymentResponse = await ApiClient.PostAsync<PaymentResponseObject>(url, payload);
 
                 if (paymentResponse != null && (paymentResponse.statusCode == "00" || paymentResponse.statusCode == "200"))

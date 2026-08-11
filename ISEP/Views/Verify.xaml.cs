@@ -60,7 +60,7 @@ namespace ISEP.Views
             {
                 try
                 {
-                    string url = $"{BrandConfig.ApiBaseUrl}/api/GPayments/VerifyRef?RefNo={refno.Text.Trim()}";
+                    string url = $"{BrandConfig.ApiBaseUrl}/api/GPayments/v1/VerifyRef?RefNo={refno.Text.Trim()}";
                     var result = await ApiClient.GetAsync<VerifyFareIdResponse>(url);
 
                     if (result != null)
