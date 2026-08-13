@@ -1,7 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:yummy="clr-namespace:Xamarin.Forms.PancakeView;assembly=Xamarin.Forms.PancakeView"
              x:Class="ISEP.Views.Payment"     
              BackgroundColor="Transparent"
              NavigationPage.HasNavigationBar="False">
@@ -40,12 +39,25 @@
                 <Setter Property="Margin" Value="0,5" />
             </Style>
 
-            <Style x:Key="FieldLabelStyle" TargetType="Label">
-                <Setter Property="Margin" Value="2,0,0,6"/>
+            <Style x:Key="FieldHeaderLabelStyle" TargetType="Label">
                 <Setter Property="FontSize" Value="11"/>
                 <Setter Property="FontAttributes" Value="Bold"/>
+                <Setter Property="TextColor" Value="#64748B"/>
+                <Setter Property="CharacterSpacing" Value="0.8"/>
+            </Style>
+
+            <Style x:Key="DisplayValueLabelStyle" TargetType="Label">
+                <Setter Property="FontSize" Value="14"/>
+                <Setter Property="FontAttributes" Value="Bold"/>
                 <Setter Property="TextColor" Value="#0F172A"/>
-                <Setter Property="CharacterSpacing" Value="1.0"/>
+            </Style>
+
+            <Style x:Key="DisplayCardFrameStyle" TargetType="Frame">
+                <Setter Property="HasShadow" Value="False" />
+                <Setter Property="BorderColor" Value="#E2E8F0" />
+                <Setter Property="CornerRadius" Value="10" />
+                <Setter Property="Padding" Value="14,10" />
+                <Setter Property="BackgroundColor" Value="#F8FAFC" />
             </Style>
 
             <Style x:Key="InputFrameStyle" TargetType="Frame">
@@ -53,14 +65,13 @@
                 <Setter Property="BorderColor" Value="#CBD5E1" />
                 <Setter Property="CornerRadius" Value="10" />
                 <Setter Property="Padding" Value="12,0" />
-                <Setter Property="BackgroundColor" Value="#F8FAFC" />
+                <Setter Property="BackgroundColor" Value="#FFFFFF" />
                 <Setter Property="HeightRequest" Value="48" />
             </Style>
         </ResourceDictionary>
     </ContentPage.Resources>
 
     <Grid>
-        <!-- Semi-transparent Dimmed Backdrop -->
         <Grid.Background>
             <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
                 <GradientStop Color="#90000000" Offset="0.0" />
@@ -72,7 +83,6 @@
             <TapGestureRecognizer Tapped="OnBackgroundTapped" />
         </Grid.GestureRecognizers>
 
-        <!-- Loading Indicator Overlay -->
         <StackLayout x:Name="LoadingContainer" 
                      IsVisible="False" 
                      VerticalOptions="Center" 
@@ -92,7 +102,6 @@
                    HorizontalOptions="Center" />
         </StackLayout>
 
-        <!-- Bottom Sheet Container -->
         <Frame x:Name="SheetFrame"
                VerticalOptions="End" 
                HorizontalOptions="FillAndExpand"
@@ -101,7 +110,7 @@
                HasShadow="True"
                Padding="0"
                Margin="0"
-               TranslationY="350">
+               TranslationY="400">
 
             <Frame.GestureRecognizers>
                 <TapGestureRecognizer Tapped="OnSheetTapped" />
@@ -113,7 +122,6 @@
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-                <!-- Sheet Drag Handle Bar -->
                 <StackLayout x:Name="DragHandleArea"
                              Grid.Row="0" 
                              Padding="0,12,0,10" 
@@ -131,112 +139,133 @@
                              CornerRadius="2.5" />
                 </StackLayout>
 
-                <!-- Main Form Body -->
                 <ScrollView Grid.Row="1" 
-                            Padding="25,0,25,30" 
+                            Padding="25,0,25,25" 
                             VerticalScrollBarVisibility="Never">
-                    <StackLayout Spacing="16" Orientation="Vertical">
+                    <StackLayout Spacing="12" Orientation="Vertical">
 
-                        <!-- Header -->
-                        <StackLayout Spacing="6" HorizontalOptions="Center" Margin="0,0,0,5">
+                        <StackLayout Spacing="4" HorizontalOptions="Center" Margin="0,0,0,5">
                             <Image Source="Borno" 
                                    Aspect="AspectFit"
-                                   HeightRequest="75"
+                                   HeightRequest="60"
                                    HorizontalOptions="Center"/>
 
                             <Label Text="BORNO STATE REVENUE SERVICE" 
-                                   FontSize="16" 
+                                   FontSize="14" 
                                    FontAttributes="Bold" 
                                    HorizontalTextAlignment="Center"
                                    TextColor="#0A192F" />
 
-                            <Label Text="SECURE COLLECTION PAYMENT" 
+                            <Label Text="PROCESS PAYMENT" 
                                    FontSize="12" 
                                    FontAttributes="Bold" 
                                    HorizontalTextAlignment="Center"
                                    TextColor="#1E3A8A" />
                         </StackLayout>
 
-                        <!-- Invoice / RRR Input -->
-                        <StackLayout Spacing="6">
-                            <Label Text="INVOICE / RRR NUMBER" Style="{StaticResource FieldLabelStyle}"/>
-                            <Frame x:Name="TokenInputFrame" Style="{StaticResource InputFrameStyle}">
-                                <Entry x:Name="inputtoken"
-                                       Placeholder="Enter RRR / Invoice Ref" 
-                                       HorizontalOptions="FillAndExpand"
+                        <Frame Style="{StaticResource DisplayCardFrameStyle}">
+                            <StackLayout Spacing="2">
+                                <Label Text="RRR / REFERENCE NUMBER" Style="{StaticResource FieldHeaderLabelStyle}"/>
+                                <Label x:Name="lblRefrencenum" Text="---" Style="{StaticResource DisplayValueLabelStyle}" TextColor="#1E3A8A"/>
+                            </StackLayout>
+                        </Frame>
+
+                        <Frame Style="{StaticResource DisplayCardFrameStyle}">
+                            <StackLayout Spacing="2">
+                                <Label Text="TAX NAME" Style="{StaticResource FieldHeaderLabelStyle}"/>
+                                <Label x:Name="lblTaxName" Text="---" Style="{StaticResource DisplayValueLabelStyle}"/>
+                            </StackLayout>
+                        </Frame>
+
+                        <Grid ColumnSpacing="10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <Frame Grid.Column="0" Style="{StaticResource DisplayCardFrameStyle}">
+                                <StackLayout Spacing="2">
+                                    <Label Text="ACTUAL AMOUNT" Style="{StaticResource FieldHeaderLabelStyle}"/>
+                                    <Label x:Name="lblActualAmount" Text="₦0.00" Style="{StaticResource DisplayValueLabelStyle}"/>
+                                </StackLayout>
+                            </Frame>
+
+                            <Frame Grid.Column="1" Style="{StaticResource DisplayCardFrameStyle}">
+                                <StackLayout Spacing="2">
+                                    <Label Text="BALANCE UNPAID" Style="{StaticResource FieldHeaderLabelStyle}"/>
+                                    <Label x:Name="lblBalanceToPay" Text="₦0.00" Style="{StaticResource DisplayValueLabelStyle}" TextColor="#D97706"/>
+                                </StackLayout>
+                            </Frame>
+                        </Grid>
+
+                        <StackLayout Spacing="4">
+                            <Label Text="AMOUNT TO PAY (₦) *" Style="{StaticResource FieldHeaderLabelStyle}" TextColor="#0F172A"/>
+                            <Frame x:Name="AmountFrame" Style="{StaticResource InputFrameStyle}">
+                                <Entry x:Name="amount"
+                                       Placeholder="Enter Amount" 
+                                       Keyboard="Numeric"
                                        BackgroundColor="Transparent"
                                        FontSize="14"
+                                       FontAttributes="Bold"
                                        TextColor="#0F172A"
-                                       TextChanged="OnTokenTextChanged"
-                                       Completed="OnTokenCompleted"
-                                       MaxLength="30"
                                        ClearButtonVisibility="WhileEditing"
                                        PlaceholderColor="#94A3B8" />
                             </Frame>
                         </StackLayout>
 
-                        <!-- Payment Method Picker -->
-                        <StackLayout Spacing="6">
-                            <Label Text="PAYMENT METHOD" Style="{StaticResource FieldLabelStyle}"/>
-                            <Frame Style="{StaticResource InputFrameStyle}">
-                                <Picker Title="Select Payment Method"
-                                        FontSize="14"    
-                                        x:Name="paymentmethod"
-                                        BackgroundColor="Transparent"
-                                        TitleColor="#94A3B8"
-                                        TextColor="#0F172A"
-                                        HorizontalOptions="FillAndExpand"
-                                        SelectedIndexChanged="OnPaymentMethodChanged">
-                                    <Picker.ItemsSource>
-                                        <x:Array Type="{x:Type x:String}">
-                                            <x:String>Cash</x:String>
-                                            <x:String>POS Transfer</x:String>
-                                            <x:String>Bank Direct</x:String>
-                                        </x:Array>
-                                    </Picker.ItemsSource>
-                                </Picker>
+                        <StackLayout Spacing="4">
+                            <Label Text="AGENT PIN *" Style="{StaticResource FieldHeaderLabelStyle}" TextColor="#0F172A"/>
+                            <Frame x:Name="PinFrame" Style="{StaticResource InputFrameStyle}">
+                                <Entry x:Name="PIN"
+                                       Placeholder="Enter 4-Digit PIN" 
+                                       IsPassword="True"
+                                       MaxLength="4"
+                                       Keyboard="Numeric"
+                                       BackgroundColor="Transparent"
+                                       FontSize="14"
+                                       TextColor="#0F172A"
+                                       TextChanged="OnPinTextChanged"
+                                       Completed="OnPinCompleted"
+                                       PlaceholderColor="#94A3B8" />
                             </Frame>
                         </StackLayout>
 
-                        <!-- Error / Success Notification Frame -->
                         <StackLayout x:Name="MessageContainer" IsVisible="False">
                             <Frame x:Name="MessageFrame"
                                    CornerRadius="10"
                                    HasShadow="False"
                                    Padding="12"
                                    Margin="0,5">
-                                <StackLayout Orientation="Horizontal" Spacing="10">
-                                    <Label x:Name="MessageIcon" FontSize="16" VerticalOptions="Center" />
-                                    <Label x:Name="MessageLabel" FontSize="12" VerticalOptions="Center" HorizontalOptions="FillAndExpand" LineBreakMode="WordWrap" />
+                                <StackLayout Spacing="6">
+                                    <StackLayout Orientation="Horizontal" Spacing="8">
+                                        <Label x:Name="MessageIcon" FontSize="16" VerticalOptions="Center" />
+                                        <Label x:Name="MessageTitle" FontSize="13" FontAttributes="Bold" VerticalOptions="Center" />
+                                    </StackLayout>
+                                    <Label x:Name="MessageLabel" FontSize="12" VerticalOptions="Center" LineBreakMode="WordWrap" />
                                 </StackLayout>
                             </Frame>
                         </StackLayout>
 
-                        <!-- Action Buttons -->
                         <StackLayout Spacing="8" Margin="0,10,0,0">
-                            <!-- Process Payment -->
                             <Button x:Name="VerifyButton"
                                     Text="PROCESS PAYMENT"
                                     Clicked="OnVerifyTokenClicked"
                                     Style="{StaticResource PrimaryButtonStyle}"
                                     IsEnabled="False"/>
 
-                            <!-- Reprint Button (Hidden by default; appears if receipt print fails) -->
                             <Button x:Name="ReprintButton"
                                     Text="🖨️ REPRINT RECEIPT"
                                     Style="{StaticResource ReprintButtonStyle}"
                                     IsVisible="False"
                                     Clicked="OnReprintReceiptClicked"/>
 
-                            <!-- Cancel Sheet -->
                             <Button x:Name="CancelButton"
                                     Text="CANCEL" 
                                     Clicked="OnCancelClicked"
                                     Style="{StaticResource SecondaryButtonStyle}"/>
                         </StackLayout>
 
-                        <!-- Security Footer -->
-                        <StackLayout Orientation="Horizontal" HorizontalOptions="Center" Spacing="6" Margin="0,10,0,0">
+                        <StackLayout Orientation="Horizontal" HorizontalOptions="Center" Spacing="6" Margin="0,5,0,0">
                             <Label Text="🔒" FontSize="11" />
                             <Label Text="Protected by BOIRS Secure Payment Protocol"
                                    FontSize="11"
