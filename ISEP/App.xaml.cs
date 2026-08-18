@@ -41,10 +41,23 @@ namespace ISEP
             }
         }
 
-        protected override async void OnStart()
+        protected override void OnStart()
         {
             base.OnStart();
-            await ProcessPendingPrintJobsAsync();
+            // Register platform instances
+            if (Printer == null)
+            {
+                // On Android head: DependencyService or platform provider assigns BluetoothPrinterService
+                Printer = DependencyService.Get<IPrinterService>() ?? new MockPrinterService();
+            }
+
+            if (PrintJobManager == null)
+            {
+                PrintJobManager = new PrintJobManager(Printer);
+            }
+
+            // Clean up jobs older than 48 hours on startup
+            Task.Run(async () => await PrintJobManager.PruneOldJobsAsync());
         }
 
         protected override async void OnResume()

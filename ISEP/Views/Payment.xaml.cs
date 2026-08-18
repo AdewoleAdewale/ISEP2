@@ -15,22 +15,19 @@ namespace ISEP.Views
     [XamlCompilation(XamlCompilationOptions.Compile)]
     public partial class Payment : ContentPage
     {
-        // ── UI Control States ────────────────────────────────────────────────
         private bool _isAnimating = false;
         private bool _isVerifying = false;
         private bool _isDragging = false;
-        private bool _isPrinting = false;
         private double _initialTranslationY = 0;
         private double _dragStartY = 0;
+        private bool _isPrinting = false;
+        private ReceiptData _lastReceiptData = null;
 
-        // ── Form Constants ───────────────────────────────────────────────────
-        private const double DRAG_THRESHOLD = 100;
-        private const double AUTO_CLOSE_TIMEOUT = 5 * 60 * 1000; // 5 Minutes
+        private const double DRAG_THRESHOLD = 120;
+        private const double AUTO_CLOSE_TIMEOUT = 5 * 60 * 1000;
 
-        // ── Timers & Data Persistence ────────────────────────────────────────
         private System.Timers.Timer _autoCloseTimer;
         private bool _isSheetClosed = false;
-        private ReceiptData _lastReceiptData = null;
 
         public Payment()
         {
@@ -53,9 +50,22 @@ namespace ISEP.Views
                 lblActualAmount.Text = FormatCurrency(Verify.actualAmts);
                 lblBalanceToPay.Text = FormatCurrency(Verify.amtLefts);
 
-                if (!string.IsNullOrEmpty(Verify.actualAmts))
+                decimal.TryParse(Verify.actualAmts, out decimal actualAmt);
+                decimal.TryParse(Verify.amtLefts, out decimal amtLeft);
+
+                bool hasPreviousPartPayment = (actualAmt > 0 && amtLeft > 0 && amtLeft < actualAmt);
+
+                if (hasPreviousPartPayment)
                 {
-                    amount.Text = Verify.actualAmts;
+                    amount.Text = amtLeft.ToString("0.##");
+                    amount.IsReadOnly = false;
+                    lblPartPaymentNote.IsVisible = false;
+                }
+                else
+                {
+                    amount.Text = actualAmt.ToString("0.##");
+                    amount.IsReadOnly = true;
+                    lblPartPaymentNote.IsVisible = true;
                 }
             }
             catch (Exception ex) { HandleException(ex, "PopulateVerifiedData"); }
@@ -73,33 +83,27 @@ namespace ISEP.Views
             try
             {
                 _autoCloseTimer = new System.Timers.Timer(AUTO_CLOSE_TIMEOUT);
-                _autoCloseTimer.Elapsed += OnAutoCloseTimerElapsed;
+                _autoCloseTimer.Elapsed += async (s, e) =>
+                {
+                    if (!_isSheetClosed)
+                    {
+                        await MainThread.InvokeOnMainThreadAsync(async () =>
+                        {
+                            UserDialogs.Instance.Toast("Session expired due to inactivity.");
+                            await DismissSheet();
+                        });
+                    }
+                };
                 _autoCloseTimer.AutoReset = false;
                 _autoCloseTimer.Start();
             }
             catch (Exception ex) { HandleException(ex, "SetupAutoCloseTimer"); }
         }
 
-        private async void OnAutoCloseTimerElapsed(object sender, System.Timers.ElapsedEventArgs e)
-        {
-            try
-            {
-                if (!_isSheetClosed)
-                {
-                    await MainThread.InvokeOnMainThreadAsync(async () =>
-                    {
-                        UserDialogs.Instance.Toast("Session expired due to inactivity.");
-                        await DismissSheet();
-                    });
-                }
-            }
-            catch (Exception ex) { HandleException(ex, "OnAutoCloseTimerElapsed"); }
-        }
-
         private void StopAutoCloseTimer()
         {
             try { _autoCloseTimer?.Stop(); _autoCloseTimer?.Dispose(); _autoCloseTimer = null; }
-            catch (Exception ex) { HandleException(ex, "StopAutoCloseTimer"); }
+            catch { }
         }
 
         private void ResetAutoCloseTimer()
@@ -112,7 +116,7 @@ namespace ISEP.Views
                     _autoCloseTimer.Start();
                 }
             }
-            catch (Exception ex) { HandleException(ex, "ResetAutoCloseTimer"); }
+            catch { }
         }
 
         private async void InitializeSheet()
@@ -150,7 +154,7 @@ namespace ISEP.Views
                 _isSheetClosed = true;
                 StopAutoCloseTimer();
             }
-            catch (Exception ex) { HandleException(ex, "OnDisappearing"); }
+            catch { }
         }
 
         private async Task AnimateSheetIn()
@@ -159,10 +163,10 @@ namespace ISEP.Views
             {
                 if (_isAnimating) return;
                 _isAnimating = true;
-                await SheetFrame.TranslateTo(0, 0, 350, Easing.SpringOut);
+                await SheetFrame.TranslateTo(0, 0, 300, Easing.SpringOut);
                 _isAnimating = false;
             }
-            catch (Exception ex) { _isAnimating = false; HandleException(ex, "AnimateSheetIn"); }
+            catch { _isAnimating = false; }
         }
 
         private async Task AnimateSheetOut()
@@ -171,16 +175,20 @@ namespace ISEP.Views
             {
                 if (_isAnimating) return;
                 _isAnimating = true;
-                await SheetFrame.TranslateTo(0, 400, 200, Easing.CubicIn);
+                await SheetFrame.TranslateTo(0, 500, 200, Easing.CubicIn);
                 _isAnimating = false;
             }
-            catch (Exception ex) { _isAnimating = false; HandleException(ex, "AnimateSheetOut"); }
+            catch { _isAnimating = false; }
         }
 
         private async void OnBackgroundTapped(object sender, EventArgs e)
         {
-            try { if (!_isDragging && !_isAnimating) await DismissSheet(); }
-            catch (Exception ex) { HandleException(ex, "OnBackgroundTapped"); }
+            try
+            {
+                if (!_isDragging && !_isAnimating)
+                    await DismissSheet();
+            }
+            catch { }
         }
 
         private void OnSheetTapped(object sender, EventArgs e) => ResetAutoCloseTimer();
@@ -191,7 +199,6 @@ namespace ISEP.Views
             {
                 bool hasPin = !string.IsNullOrWhiteSpace(PIN.Text) && PIN.Text.Trim().Length == 4;
                 VerifyButton.IsEnabled = hasPin && !_isVerifying;
-
                 HideMessage();
                 ResetAutoCloseTimer();
             }
@@ -205,7 +212,7 @@ namespace ISEP.Views
                 if (VerifyButton.IsEnabled) OnVerifyTokenClicked(sender, e);
                 ResetAutoCloseTimer();
             }
-            catch (Exception ex) { HandleException(ex, "OnPinCompleted"); }
+            catch { }
         }
 
         private async void OnVerifyTokenClicked(object sender, EventArgs e)
@@ -229,6 +236,16 @@ namespace ISEP.Views
                     return;
                 }
 
+                decimal.TryParse(Verify.actualAmts, out decimal actualAmt);
+                decimal.TryParse(Verify.amtLefts, out decimal amtLeft);
+                bool hasPreviousPartPayment = (actualAmt > 0 && amtLeft > 0 && amtLeft < actualAmt);
+
+                if (!hasPreviousPartPayment && amtParsed < actualAmt)
+                {
+                    ShowWebResponseMessage("Part-Payment Restricted", $"This notice requires the full payment of ₦{actualAmt:N2}.", false);
+                    return;
+                }
+
                 if (string.IsNullOrWhiteSpace(enterPin) || enterPin.Length < 4)
                 {
                     ShowWebResponseMessage("Validation Error", "Please enter your 4-digit Agent PIN.", false);
@@ -237,7 +254,7 @@ namespace ISEP.Views
 
                 if (enterPin != LoginPage.Pin)
                 {
-                    ShowWebResponseMessage("Security Error", "Invalid Agent PIN. Please check and try again.", false);
+                    ShowWebResponseMessage("Security Error", "Invalid Agent PIN. Please verify and retry.", false);
                     return;
                 }
 
@@ -272,7 +289,7 @@ namespace ISEP.Views
                 PIN.IsEnabled = !isLoading;
                 VerifyButton.Text = isLoading ? "PROCESSING..." : "PROCESS PAYMENT";
             }
-            catch (Exception ex) { HandleException(ex, "SetLoadingState"); }
+            catch { }
         }
 
         private async Task PostPaymentRequestAsync()
@@ -288,12 +305,10 @@ namespace ISEP.Views
                     return;
                 }
 
-                // Ensure global SSL configuration is applied before network call
                 ApiClient.ConfigureSSL();
 
                 string url = $"{BrandConfig.ApiBaseUrl}/api/GPayments/v2/Payment";
 
-                // Form-UrlEncoded payload matching Postman setup
                 var nvc = new List<KeyValuePair<string, string>>
                 {
                     new KeyValuePair<string, string>("RefNo", Verify.paymentRefs ?? lblRefrencenum.Text),
@@ -307,7 +322,6 @@ namespace ISEP.Views
                 {
                     request.Content = new FormUrlEncodedContent(nvc);
 
-                    // Execute request through the shared, SSL-bypassing ApiClient.Instance handler
                     using (var response = await ApiClient.Instance.SendAsync(request))
                     {
                         string resultString = await response.Content.ReadAsStringAsync();
@@ -315,15 +329,12 @@ namespace ISEP.Views
 
                         if (paymentResponse != null && (paymentResponse.statusCode == "00" || paymentResponse.statusCode == "200"))
                         {
-                            ShowWebResponseMessage("Transaction Successful", $"Status: {paymentResponse.status ?? "Part Payment"}\nAmount Paid: ₦{paymentResponse.amountPaid}\nBalance Unpaid: ₦{paymentResponse.amountLeft}", true);
-
                             var receipt = BuildReceiptData(paymentResponse, Verify.paymentRefs ?? lblRefrencenum.Text);
                             _lastReceiptData = receipt;
 
-                            await AttemptPrintAsync(receipt, isReprint: false);
+                            DisplaySuccessBottomSheet(paymentResponse);
 
-                            await Task.Delay(3000);
-                            await RedirectToLandingPage();
+                            await AttemptPrintAsync(receipt, false);
                         }
                         else
                         {
@@ -335,93 +346,194 @@ namespace ISEP.Views
             }
             catch (Exception ex)
             {
-                // Displays user-friendly exception string or SSL failure diagnosis
                 ShowWebResponseMessage("Network/SSL Error", ApiClient.FriendlyMessage(ex), false);
                 HandleException(ex, "PostPaymentRequestAsync");
             }
         }
 
-        private ReceiptData BuildReceiptData(PaymentResponseObject resp, string invoiceToken, bool isReprint = false)
+        private void DisplaySuccessBottomSheet(PaymentResponseObject resp)
         {
-            decimal amtPaid = decimal.TryParse(resp.amountPaid, out decimal p) ? p : (decimal.TryParse(amount.Text, out decimal a) ? a : 0m);
+            Device.BeginInvokeOnMainThread(() =>
+            {
+                PaymentFormView.IsVisible = false;
+
+                lblSuccessRef.Text = resp.refNo ?? lblRefrencenum.Text;
+                lblSuccessPayer.Text = resp.payerName ?? "N/A";
+                lblSuccessTax.Text = resp.taxName ?? lblTaxName.Text;
+                lblSuccessAmountPaid.Text = $"₦{resp.amountPaid}";
+                lblSuccessAmountLeft.Text = $"₦{resp.amountLeft ?? "0.00"}";
+
+                PaymentSuccessView.IsVisible = true;
+            });
+        }
+
+      
+        private async void OnNewTransactionClicked(object sender, EventArgs e)
+        {
+            await DismissSheet();
+        }
+
+        // ─────────────────────────────────────────────────────────────────────
+        //  RECEIPT BUILDER (Aligned with BluetoothPrinterService Models)
+        // ─────────────────────────────────────────────────────────────────────
+
+        private ReceiptData BuildReceiptData(PaymentResponseObject resp, string invoiceToken)
+        {
+            decimal amtPaid = decimal.TryParse(resp.amountPaid, out decimal p)
+                ? p
+                : (decimal.TryParse(amount.Text, out decimal a) ? a : 0m);
             decimal amtLeft = decimal.TryParse(resp.amountLeft, out decimal l) ? l : 0m;
+            decimal actualAmt = decimal.TryParse(resp.actualAmt, out decimal act) ? act : (amtPaid + amtLeft);
 
             var items = new List<ReceiptItem>
             {
                 new ReceiptItem
                 {
                     Description = !string.IsNullOrEmpty(resp.taxName) ? resp.taxName : (lblTaxName.Text ?? "Revenue Payment"),
-                    Amount = amtPaid,
-                    SubText = $"Payer ID: {resp.payerId}"
+                    Amount      = amtPaid
                 }
             };
 
+            if (!string.IsNullOrWhiteSpace(resp.payerName))
+            {
+                items.Add(new ReceiptItem
+                {
+                    Description = "Payer Name",
+                    Amount = 0m,
+                    SubText = resp.payerName
+                });
+            }
+
+            if (!string.IsNullOrWhiteSpace(resp.payerId))
+            {
+                items.Add(new ReceiptItem
+                {
+                    Description = "Payer ID",
+                    Amount = 0m,
+                    SubText = resp.payerId
+                });
+            }
+
+            if (!string.IsNullOrWhiteSpace(resp.lga))
+            {
+                items.Add(new ReceiptItem
+                {
+                    Description = "LGA",
+                    Amount = 0m,
+                    SubText = resp.lga
+                });
+            }
+
             return new ReceiptData
             {
-                StoreName = BrandConfig.ReceiptStoreName,
-                StoreAddress = resp.address ?? resp.street ?? BrandConfig.ReceiptAddress,
-                StorePhone = resp.phone ?? BrandConfig.ReceiptPhone,
+                StoreName = BrandConfig.ReceiptStoreName ?? "BORNO STATE INTERNAL REVENUE SERVICE",
+                StorePhone = BrandConfig.ReceiptPhone ?? "Contact us: +234 802 722 9331, +234 816 593 2680",
+                ReceiptBannerText = "OFFICIAL RECEIPT",
                 ReceiptNumber = resp.refNo ?? invoiceToken,
-                AgentName = resp.agent ?? LoginPage.ValidUserMail ?? "N/A",
+                AgentName = LoginPage.Name ?? LoginPage.ValidUserMail ?? "N/A",
                 CollectionPoint = resp.lga ?? "BOIRS Mobile Terminal",
                 PrintDate = DateTime.Now,
                 Items = items,
-                TotalAmount = decimal.TryParse(resp.actualAmt, out decimal act) ? act : (amtPaid + amtLeft),
+                TotalAmount = actualAmt,
                 AmountPaid = amtPaid,
                 AmountLeft = amtLeft,
-                BarcodeLabel = $"{BrandConfig.VerifyReceiptUrl}{resp.refNo ?? invoiceToken}",
-                FooterLine1 = isReprint ? "*** REPRINTED RECEIPT ***" : BrandConfig.ReceiptFooterLine1,
-                FooterLine2 = isReprint ? $"Reprinted: {DateTime.Now:dd MMM yyyy HH:mm} | {BrandConfig.ReceiptFooterLine2}" : BrandConfig.ReceiptFooterLine2
+                FooterLine1 = BrandConfig.ReceiptFooterLine1 ?? "Thank You!",
+                FooterLine2 = BrandConfig.ReceiptFooterLine2 ?? "POWERED BY OSOFTPAY",
+                BarcodeLabel = $"{BrandConfig.VerifyReceiptUrl}{resp.refNo ?? invoiceToken}"
             };
+
         }
+
+
+        // ─────────────────────────────────────────────────────────────────────
+        //  PRINT EXECUTION (Chunked + Durable Queue)
+        // ─────────────────────────────────────────────────────────────────────
 
         private async Task AttemptPrintAsync(ReceiptData receipt, bool isReprint)
         {
-            if (_isPrinting) return;
+            // 1. Bluetooth Permission Check
+            bool granted = await BluetoothPermissionHelper.RequestAsync();
+            if (!granted)
+            {
+                Device.BeginInvokeOnMainThread(() =>
+                    UserDialogs.Instance.Toast("Bluetooth permission denied.", TimeSpan.FromSeconds(5)));
+               
+                return;
+            }
+
+            // 2. Concurrency Lock
+            if (_isPrinting)
+            {
+                System.Diagnostics.Debug.WriteLine("[Payment] Print already in progress – skipping duplicate.");
+                return;
+            }
             _isPrinting = true;
 
             try
             {
-                bool granted = await BluetoothPermissionHelper.RequestAsync();
-                if (!granted)
-                {
-                    UserDialogs.Instance.Toast("Bluetooth permission required to print receipt.");
-                    ShowReprintButton();
-                    return;
-                }
-
+                // 3. Durable persistence before transmission
                 var job = await App.PrintJobManager.EnqueueAsync(receipt, logoAssetName: "Logo.png");
 
+                // 4. Progress callbacks for UI feedback
                 var progress = new Progress<PrintProgress>(p =>
                     MainThread.BeginInvokeOnMainThread(() =>
                     {
                         switch (p.Status)
                         {
                             case PrintProgressStatus.ChunkStarted:
-                                UserDialogs.Instance.Toast($"Printing {p.ChunkName}…");
+                                UserDialogs.Instance.Toast($"Printing {p.ChunkName}…", TimeSpan.FromSeconds(2));
                                 break;
+
+                            case PrintProgressStatus.ChunkRetrying:
+                                UserDialogs.Instance.Toast($"Reconnecting… retrying {p.ChunkName} (#{p.AttemptNumber})", TimeSpan.FromSeconds(2));
+                                break;
+
                             case PrintProgressStatus.SessionCompleted:
-                                HideReprintButton();
-                                UserDialogs.Instance.Toast(isReprint ? "Receipt reprinted!" : "Receipt printed successfully.");
+                              
+                                UserDialogs.Instance.Toast(isReprint ? "Receipt reprinted." : "Receipt printed successfully.", TimeSpan.FromSeconds(3));
                                 break;
+
                             case PrintProgressStatus.ChunkFailed:
-                                ShowReprintButton();
+                              
+                                UserDialogs.Instance.Toast($"Could not print {p.ChunkName}.", TimeSpan.FromSeconds(4));
                                 break;
                         }
                     }));
 
-                using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(45)))
+                // 5. Execute transmission
+                using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60)))
                 {
                     await App.PrintJobManager.ExecuteAsync(job.JobId, progress, cts.Token);
+
+                    // Success cleanup from pending store
                     await App.PrintJobManager.DeleteJobAsync(job.JobId);
-                    HideReprintButton();
+                   
                 }
+            }
+            catch (PrinterException pex)
+            {
+                Device.BeginInvokeOnMainThread(() =>
+                {
+                    UserDialogs.Instance.Toast($"Print failed: {pex.Message}", TimeSpan.FromSeconds(5));
+                    
+                });
+            }
+            catch (OperationCanceledException)
+            {
+                Device.BeginInvokeOnMainThread(() =>
+                {
+                    UserDialogs.Instance.Toast("Print timed out. Tap Reprint to try again.", TimeSpan.FromSeconds(5));
+                 
+                });
             }
             catch (Exception ex)
             {
+                Device.BeginInvokeOnMainThread(() =>
+                {
+                    UserDialogs.Instance.Toast("Printer unreachable. Check Bluetooth and tap Reprint.", TimeSpan.FromSeconds(5));
+                    
+                });
                 System.Diagnostics.Debug.WriteLine($"[Payment Print Error]: {ex.Message}");
-                UserDialogs.Instance.Toast("Printer issue. Tap Reprint to try again.");
-                ShowReprintButton();
             }
             finally
             {
@@ -429,47 +541,11 @@ namespace ISEP.Views
             }
         }
 
-        private async void OnReprintReceiptClicked(object sender, EventArgs e)
-        {
-            if (_lastReceiptData == null)
-            {
-                UserDialogs.Instance.Toast("No receipt available for reprint.");
-                return;
-            }
+        // ─────────────────────────────────────────────────────────────────────
+        //  REPRINT ACTION HANDLER
+        // ─────────────────────────────────────────────────────────────────────
 
-            ReprintButton.IsEnabled = false;
-            ReprintButton.Text = "🖨️ REPRINTING...";
-
-            try
-            {
-                _lastReceiptData.FooterLine1 = "*** REPRINTED RECEIPT ***";
-                _lastReceiptData.FooterLine2 = $"Reprinted: {DateTime.Now:dd MMM yyyy HH:mm} | {BrandConfig.ReceiptFooterLine2}";
-
-                await AttemptPrintAsync(_lastReceiptData, isReprint: true);
-            }
-            finally
-            {
-                ReprintButton.IsEnabled = true;
-                ReprintButton.Text = "🖨️ REPRINT RECEIPT";
-            }
-        }
-
-        private void ShowReprintButton()
-        {
-            try
-            {
-                ReprintButton.IsVisible = true;
-                ReprintButton.Opacity = 0;
-                ReprintButton.FadeTo(1, 200, Easing.CubicOut);
-            }
-            catch { }
-        }
-
-        private void HideReprintButton()
-        {
-            try { ReprintButton.IsVisible = false; } catch { }
-        }
-
+    
         private void ShowWebResponseMessage(string title, string message, bool isSuccess)
         {
             try
@@ -497,8 +573,6 @@ namespace ISEP.Views
         }
 
         private void HideMessage() => MessageContainer.IsVisible = false;
-
-        private async Task RedirectToLandingPage() => await DismissSheet();
 
         private async Task DismissSheet()
         {
@@ -546,7 +620,7 @@ namespace ISEP.Views
                             if (newY >= 0)
                             {
                                 SheetFrame.TranslationY = newY;
-                                this.Opacity = Math.Max(0.2, 1 - (newY / 400));
+                                this.Opacity = Math.Max(0.2, 1 - (newY / 500));
                             }
                         }
                         break;
@@ -585,6 +659,8 @@ namespace ISEP.Views
         {
             System.Diagnostics.Debug.WriteLine($"[Payment Error in {context}]: {ex.Message}");
         }
+
+      
     }
 
     internal class PaymentObject

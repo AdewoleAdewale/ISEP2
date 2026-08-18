@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Xamarin.Forms;
 using Xamarin.Forms.Xaml;
 using ISEP.Services;
+using System.Diagnostics;
 
 namespace ISEP.Views
 {
@@ -22,6 +23,8 @@ namespace ISEP.Views
         public static string agent { get; set; }
         public static string cashoutBalance { get; set; }
 
+
+        private bool EnableAdvancedLogging = true;
         public Dashboard()
         {
             InitializeComponent();
@@ -298,19 +301,75 @@ namespace ISEP.Views
 
         private async void TestPrinter_Clicked(object sender, EventArgs e)
         {
-            using (UserDialogs.Instance.Loading("Running Printer Diagnostics..."))
+            await CallPrinterAsync();
+        }
+
+        private async Task CallPrinterAsync()
+        {
+            // 1. Verify Bluetooth runtime permission
+            bool granted = await BluetoothPermissionHelper.RequestAsync();
+            if (!granted)
             {
-                try
+                await DisplayAlert("Bluetooth Permission",
+                    "Printing needs Bluetooth permission. Please allow it in Settings and try again.", "OK");
+                return;
+            }
+
+            try
+            {
+                using (UserDialogs.Instance.Loading("Connecting to Printer...", null, null, true))
                 {
-                    await App.Printer.PrintTestPageAsync();
-                    UserDialogs.Instance.Toast("Test receipt sent to printer.");
+                    var printTask = App.Printer.PrintTestPageAsync();
+                    var timeoutTask = Task.Delay(TimeSpan.FromSeconds(30));
+                    var finished = await Task.WhenAny(printTask, timeoutTask);
+
+                    if (finished == timeoutTask)
+                    {
+                        await DisplayAlert("Printer Error",
+                            "Print timed out. Check that the printer is turned on and paired.", "OK");
+                        return;
+                    }
+
+                    await printTask;
                 }
-                catch (Exception ex)
-                {
-                    await DisplayAlert("Printer Diagnostics", ex.Message, "OK");
-                }
+
+                await DisplayAlert("Print Test",
+                    "Test page sent successfully. Check your printer output.", "OK");
+            }
+            catch (PrinterException pex)
+            {
+                await DisplayAlert("Printer Error", pex.Message, "OK");
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Printer Error",
+                    "Could not connect to printer. Ensure it is turned on and paired.", "OK");
+                System.Diagnostics.Debug.WriteLine($"[Printer Error]: {ex.Message}");
             }
         }
+
+        private void LogError(string context, Exception ex)
+        {
+            try
+            {
+                if (EnableAdvancedLogging)
+                {
+                    Debug.WriteLine($"[ERROR] {context}: {ex.GetType().Name}");
+                    Debug.WriteLine($"[ERROR] Message: {ex.Message}");
+                    Debug.WriteLine($"[ERROR] StackTrace: {ex.StackTrace}");
+
+                    if (ex.InnerException != null)
+                    {
+                        Debug.WriteLine($"[ERROR] Inner Exception: {ex.InnerException.Message}");
+                    }
+                }
+            }
+            catch
+            {
+                // Silent fail
+            }
+        }
+
 
         private async void OnLogoutTapped(object sender, EventArgs e)
         {

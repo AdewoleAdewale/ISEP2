@@ -192,6 +192,7 @@ namespace ISEP.Services
         /// </summary>
         public string BarcodeLabel { get; set; } =
             BrandConfig.VerifyReceiptUrl;
+        public string ReceiptBannerText { get; internal set; } = "Powered by ISEP";
     }
 
 
