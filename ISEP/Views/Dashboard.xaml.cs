@@ -301,53 +301,62 @@ namespace ISEP.Views
 
         private async void TestPrinter_Clicked(object sender, EventArgs e)
         {
-            await CallPrinterAsync();
+            await RunTestPrintAsync();
         }
 
-        private async Task CallPrinterAsync()
+        private async Task RunTestPrintAsync()
         {
-            // 1. Verify Bluetooth runtime permission
+            // 1. Check runtime Bluetooth permission
             bool granted = await BluetoothPermissionHelper.RequestAsync();
             if (!granted)
             {
-                await DisplayAlert("Bluetooth Permission",
-                    "Printing needs Bluetooth permission. Please allow it in Settings and try again.", "OK");
+                await DisplayAlert(
+                    "Bluetooth Permission",
+                    "Printing requires Bluetooth permission. Please allow it in device Settings.",
+                    "OK");
                 return;
             }
 
+            // 2. Call App.Printer with a 30-second cancellation guard
             try
             {
                 using (UserDialogs.Instance.Loading("Connecting to Printer...", null, null, true))
                 {
-                    var printTask = App.Printer.PrintTestPageAsync();
-                    var timeoutTask = Task.Delay(TimeSpan.FromSeconds(30));
-                    var finished = await Task.WhenAny(printTask, timeoutTask);
-
-                    if (finished == timeoutTask)
+                    using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30)))
                     {
-                        await DisplayAlert("Printer Error",
-                            "Print timed out. Check that the printer is turned on and paired.", "OK");
-                        return;
-                    }
+                        var printTask = App.Printer.PrintTestPageAsync(cancellationToken: cts.Token);
+                        var timeoutTask = Task.Delay(TimeSpan.FromSeconds(30), cts.Token);
 
-                    await printTask;
+                        var finished = await Task.WhenAny(printTask, timeoutTask);
+                        if (finished == timeoutTask)
+                        {
+                            await DisplayAlert(
+                                "Printer Error",
+                                "Print timed out. Ensure the printer is turned on and paired in Bluetooth settings.",
+                                "OK");
+                            return;
+                        }
+
+                        await printTask;
+                    }
                 }
 
-                await DisplayAlert("Print Test",
-                    "Test page sent successfully. Check your printer output.", "OK");
+                await DisplayAlert("Print Diagnostics", "Test page sent successfully.", "OK");
             }
             catch (PrinterException pex)
             {
-                await DisplayAlert("Printer Error", pex.Message, "OK");
+                await DisplayAlert("Printer Diagnostics", pex.Message, "OK");
             }
             catch (Exception ex)
             {
-                await DisplayAlert("Printer Error",
-                    "Could not connect to printer. Ensure it is turned on and paired.", "OK");
-                System.Diagnostics.Debug.WriteLine($"[Printer Error]: {ex.Message}");
+                await DisplayAlert(
+                    "Printer Diagnostics",
+                    "Could not connect to the printer. Check that it is powered on and within range.",
+                    "OK");
+                System.Diagnostics.Debug.WriteLine($"[Dashboard Test Print]: {ex.Message}");
             }
         }
-
+    
         private void LogError(string context, Exception ex)
         {
             try

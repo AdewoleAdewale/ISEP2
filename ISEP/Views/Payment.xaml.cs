@@ -373,108 +373,85 @@ namespace ISEP.Views
             await DismissSheet();
         }
 
-        // ─────────────────────────────────────────────────────────────────────
-        //  RECEIPT BUILDER (Aligned with BluetoothPrinterService Models)
-        // ─────────────────────────────────────────────────────────────────────
 
-        private ReceiptData BuildReceiptData(PaymentResponseObject resp, string invoiceToken)
+        private ReceiptData BuildReceiptData(PaymentResponseObject resp, string invoiceToken, bool isReprint = false)
         {
             decimal amtPaid = decimal.TryParse(resp.amountPaid, out decimal p)
                 ? p
                 : (decimal.TryParse(amount.Text, out decimal a) ? a : 0m);
+
             decimal amtLeft = decimal.TryParse(resp.amountLeft, out decimal l) ? l : 0m;
             decimal actualAmt = decimal.TryParse(resp.actualAmt, out decimal act) ? act : (amtPaid + amtLeft);
 
             var items = new List<ReceiptItem>
-            {
-                new ReceiptItem
-                {
-                    Description = !string.IsNullOrEmpty(resp.taxName) ? resp.taxName : (lblTaxName.Text ?? "Revenue Payment"),
-                    Amount      = amtPaid
-                }
-            };
+    {
+        new ReceiptItem
+        {
+            Description = !string.IsNullOrEmpty(resp.taxName) ? resp.taxName : (lblTaxName.Text ?? "Revenue Payment"),
+            Amount      = amtPaid
+        }
+    };
 
             if (!string.IsNullOrWhiteSpace(resp.payerName))
             {
-                items.Add(new ReceiptItem
-                {
-                    Description = "Payer Name",
-                    Amount = 0m,
-                    SubText = resp.payerName
-                });
+                items.Add(new ReceiptItem { Description = "Payer Name", Amount = 0m, SubText = resp.payerName });
             }
 
             if (!string.IsNullOrWhiteSpace(resp.payerId))
             {
-                items.Add(new ReceiptItem
-                {
-                    Description = "Payer ID",
-                    Amount = 0m,
-                    SubText = resp.payerId
-                });
+                items.Add(new ReceiptItem { Description = "Payer ID", Amount = 0m, SubText = resp.payerId });
             }
 
             if (!string.IsNullOrWhiteSpace(resp.lga))
             {
-                items.Add(new ReceiptItem
-                {
-                    Description = "LGA",
-                    Amount = 0m,
-                    SubText = resp.lga
-                });
+                items.Add(new ReceiptItem { Description = "LGA", Amount = 0m, SubText = resp.lga });
             }
+
+            items.Add(new ReceiptItem
+            {
+                Description = "Date",
+                Amount = 0m,
+                SubText = DateTime.Now.ToString("dd MMM yyyy HH:mm")
+            });
 
             return new ReceiptData
             {
-                StoreName = BrandConfig.ReceiptStoreName ?? "BORNO STATE INTERNAL REVENUE SERVICE",
+                StoreName = App.RevenueServiceName ?? BrandConfig.ReceiptStoreName ?? "BORNO STATE INTERNAL REVENUE SERVICE",
                 StorePhone = BrandConfig.ReceiptPhone ?? "Contact us: +234 802 722 9331, +234 816 593 2680",
                 ReceiptBannerText = "OFFICIAL RECEIPT",
                 ReceiptNumber = resp.refNo ?? invoiceToken,
                 AgentName = LoginPage.Name ?? LoginPage.ValidUserMail ?? "N/A",
-                CollectionPoint = resp.lga ?? "BOIRS Mobile Terminal",
+                CollectionPoint = "BOIRS Mobile Terminal",
                 PrintDate = DateTime.Now,
                 Items = items,
                 TotalAmount = actualAmt,
                 AmountPaid = amtPaid,
                 AmountLeft = amtLeft,
-                FooterLine1 = BrandConfig.ReceiptFooterLine1 ?? "Thank You!",
-                FooterLine2 = BrandConfig.ReceiptFooterLine2 ?? "POWERED BY OSOFTPAY",
+                FooterLine1 = isReprint ? "*** REPRINTED RECEIPT ***" : (App.ThankYouMessage ?? BrandConfig.ReceiptFooterLine1 ?? "Thank You!"),
+                FooterLine2 = isReprint
+                    ? $"Reprinted: {DateTime.Now:dd MMM yyyy HH:mm} | POWERED BY OSOFTPAY"
+                    : (App.PrinterFooter ?? BrandConfig.ReceiptFooterLine2 ?? "POWERED BY OSOFTPAY"),
                 BarcodeLabel = $"{BrandConfig.VerifyReceiptUrl}{resp.refNo ?? invoiceToken}"
             };
-
         }
-
-
-        // ─────────────────────────────────────────────────────────────────────
-        //  PRINT EXECUTION (Chunked + Durable Queue)
-        // ─────────────────────────────────────────────────────────────────────
 
         private async Task AttemptPrintAsync(ReceiptData receipt, bool isReprint)
         {
-            // 1. Bluetooth Permission Check
             bool granted = await BluetoothPermissionHelper.RequestAsync();
             if (!granted)
             {
-                Device.BeginInvokeOnMainThread(() =>
-                    UserDialogs.Instance.Toast("Bluetooth permission denied.", TimeSpan.FromSeconds(5)));
-               
+                await Device.InvokeOnMainThreadAsync(() => DisplayAlert("Bluetooth Permission",
+                    "Printing needs Bluetooth permission. Please allow it in Settings and retry.", "OK"));
                 return;
             }
 
-            // 2. Concurrency Lock
-            if (_isPrinting)
-            {
-                System.Diagnostics.Debug.WriteLine("[Payment] Print already in progress – skipping duplicate.");
-                return;
-            }
+            if (_isPrinting) return;
             _isPrinting = true;
 
             try
             {
-                // 3. Durable persistence before transmission
                 var job = await App.PrintJobManager.EnqueueAsync(receipt, logoAssetName: "Logo.png");
 
-                // 4. Progress callbacks for UI feedback
                 var progress = new Progress<PrintProgress>(p =>
                     MainThread.BeginInvokeOnMainThread(() =>
                     {
@@ -483,56 +460,31 @@ namespace ISEP.Views
                             case PrintProgressStatus.ChunkStarted:
                                 UserDialogs.Instance.Toast($"Printing {p.ChunkName}…", TimeSpan.FromSeconds(2));
                                 break;
-
                             case PrintProgressStatus.ChunkRetrying:
-                                UserDialogs.Instance.Toast($"Reconnecting… retrying {p.ChunkName} (#{p.AttemptNumber})", TimeSpan.FromSeconds(2));
+                                UserDialogs.Instance.Toast($"Reconnecting… retry {p.ChunkName} (#{p.AttemptNumber})", TimeSpan.FromSeconds(2));
                                 break;
-
                             case PrintProgressStatus.SessionCompleted:
-                              
                                 UserDialogs.Instance.Toast(isReprint ? "Receipt reprinted." : "Receipt printed successfully.", TimeSpan.FromSeconds(3));
                                 break;
-
                             case PrintProgressStatus.ChunkFailed:
-                              
                                 UserDialogs.Instance.Toast($"Could not print {p.ChunkName}.", TimeSpan.FromSeconds(4));
                                 break;
                         }
                     }));
 
-                // 5. Execute transmission
                 using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60)))
                 {
                     await App.PrintJobManager.ExecuteAsync(job.JobId, progress, cts.Token);
-
-                    // Success cleanup from pending store
                     await App.PrintJobManager.DeleteJobAsync(job.JobId);
-                   
                 }
             }
             catch (PrinterException pex)
             {
-                Device.BeginInvokeOnMainThread(() =>
-                {
-                    UserDialogs.Instance.Toast($"Print failed: {pex.Message}", TimeSpan.FromSeconds(5));
-                    
-                });
-            }
-            catch (OperationCanceledException)
-            {
-                Device.BeginInvokeOnMainThread(() =>
-                {
-                    UserDialogs.Instance.Toast("Print timed out. Tap Reprint to try again.", TimeSpan.FromSeconds(5));
-                 
-                });
+                Device.BeginInvokeOnMainThread(() => UserDialogs.Instance.Toast($"Print failed: {pex.Message}", TimeSpan.FromSeconds(5)));
             }
             catch (Exception ex)
             {
-                Device.BeginInvokeOnMainThread(() =>
-                {
-                    UserDialogs.Instance.Toast("Printer unreachable. Check Bluetooth and tap Reprint.", TimeSpan.FromSeconds(5));
-                    
-                });
+                Device.BeginInvokeOnMainThread(() => UserDialogs.Instance.Toast("Printer unreachable. Check Bluetooth and tap Print.", TimeSpan.FromSeconds(5)));
                 System.Diagnostics.Debug.WriteLine($"[Payment Print Error]: {ex.Message}");
             }
             finally
@@ -541,11 +493,6 @@ namespace ISEP.Views
             }
         }
 
-        // ─────────────────────────────────────────────────────────────────────
-        //  REPRINT ACTION HANDLER
-        // ─────────────────────────────────────────────────────────────────────
-
-    
         private void ShowWebResponseMessage(string title, string message, bool isSuccess)
         {
             try

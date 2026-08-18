@@ -3,6 +3,7 @@ using Android.App;
 using Android.Content.PM;
 using Android.OS;
 using Android.Runtime;
+using ISEP.Services;
 using System;
 using System.Threading.Tasks;
 
@@ -24,6 +25,36 @@ namespace ISEP.Droid
             global::Xamarin.Forms.Forms.Init(this, savedInstanceState);
             UserDialogs.Init(this);
 
+            BluetoothPermissionHelper.SetProvider(async () =>
+            {
+                if (Build.VERSION.SdkInt >= BuildVersionCodes.S) // Android 12+ (API 31+)
+                {
+                    var connectStatus = ContextCompat.CheckSelfPermission(this, Android.Manifest.Permission.BluetoothConnect);
+                    var scanStatus = ContextCompat.CheckSelfPermission(this, Android.Manifest.Permission.BluetoothScan);
+
+                    if (connectStatus != Permission.Granted || scanStatus != Permission.Granted)
+                    {
+                        ActivityCompat.RequestPermissions(this, new[]
+                        {
+                            Android.Manifest.Permission.BluetoothConnect,
+                            Android.Manifest.Permission.BluetoothScan
+                        }, 1001);
+
+                        await Task.Delay(2500); // Give user time to allow
+                        return ContextCompat.CheckSelfPermission(this, Android.Manifest.Permission.BluetoothConnect) == Permission.Granted;
+                    }
+                    return true;
+                }
+                else // Android 11 and below
+                {
+                    var status = await Xamarin.Essentials.Permissions.CheckStatusAsync<Xamarin.Essentials.Permissions.LocationWhenInUse>();
+                    if (status != Xamarin.Essentials.PermissionStatus.Granted)
+                    {
+                        status = await Xamarin.Essentials.Permissions.RequestAsync<Xamarin.Essentials.Permissions.LocationWhenInUse>();
+                    }
+                    return status == Xamarin.Essentials.PermissionStatus.Granted;
+                }
+            });
             LoadApplication(new App());
         }
 

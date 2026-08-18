@@ -332,6 +332,7 @@
                 </StackLayout>
 
                 <!-- PRINTER & DIAGNOSTICS STRIP -->
+                
                 <yummy:PancakeView Margin="16,20,16,30" Padding="16,12" BackgroundColor="White" CornerRadius="16" HasShadow="True" Elevation="3">
                     <Grid ColumnDefinitions="*, Auto">
                         <StackLayout Grid.Column="0" Spacing="2" VerticalOptions="Center">

@@ -170,6 +170,7 @@ namespace ISEP.Services
         public string StoreSubTitle { get; set; }
         public string StoreAddress { get; set; } = BrandConfig.ReceiptAddress;
         public string StorePhone { get; set; } = BrandConfig.ReceiptPhone;
+        public string ReceiptBannerText { get; set; } = "OFFICIAL RECEIPT";
         public string ReceiptNumber { get; set; } = "N/A";
         public string AgentName { get; set; }
         public string CollectionPoint { get; set; }
@@ -179,24 +180,11 @@ namespace ISEP.Services
         public List<ReceiptItem> Items { get; set; } = new List<ReceiptItem>();
         public decimal TotalAmount { get; set; }
         public decimal AmountPaid { get; set; }
-
-        /// <summary>Remaining balance after payment.</summary>
         public decimal AmountLeft { get; set; }
-
         public string FooterLine1 { get; set; } = "Thank You!";
         public string FooterLine2 { get; set; } = BrandConfig.ReceiptFooterLine2;
-
-        /// <summary>
-        /// Full verification URL encoded as a QR code.
-        /// Set to null or empty to skip the QR block entirely.
-        /// </summary>
-        public string BarcodeLabel { get; set; } =
-            BrandConfig.VerifyReceiptUrl;
-        public string ReceiptBannerText { get; internal set; } = "Powered by ISEP";
+        public string BarcodeLabel { get; set; } = BrandConfig.VerifyReceiptUrl;
     }
-
-
-
 
     public sealed class ReceiptItem
     {
@@ -204,9 +192,6 @@ namespace ISEP.Services
         public decimal Amount { get; set; }
         public string SubText { get; set; }
     }
-
-
-
 
     // ══════════════════════════════════════════════════════════════
     //  CUSTOM EXCEPTION
