@@ -334,7 +334,7 @@ namespace ISEP.Views
 
                             DisplaySuccessBottomSheet(paymentResponse);
 
-                            await AttemptPrintAsync(receipt, false);
+                            await TriggerReceiptPrintAsync(receipt);
                         }
                         else
                         {
@@ -374,7 +374,11 @@ namespace ISEP.Views
         }
 
 
-        private ReceiptData BuildReceiptData(PaymentResponseObject resp, string invoiceToken, bool isReprint = false)
+        // ─────────────────────────────────────────────────────────────────────
+        //  RECEIPT BUILDER (Matching RegisterPropertyWHT / Borno Standard)
+        // ─────────────────────────────────────────────────────────────────────
+
+        private ReceiptData BuildReceiptData(PaymentResponseObject resp, string invoiceToken)
         {
             decimal amtPaid = decimal.TryParse(resp.amountPaid, out decimal p)
                 ? p
@@ -383,113 +387,75 @@ namespace ISEP.Views
             decimal amtLeft = decimal.TryParse(resp.amountLeft, out decimal l) ? l : 0m;
             decimal actualAmt = decimal.TryParse(resp.actualAmt, out decimal act) ? act : (amtPaid + amtLeft);
 
-            var items = new List<ReceiptItem>
-    {
-        new ReceiptItem
-        {
-            Description = !string.IsNullOrEmpty(resp.taxName) ? resp.taxName : (lblTaxName.Text ?? "Revenue Payment"),
-            Amount      = amtPaid
-        }
-    };
+            var receipt = ReceiptPrinter.CreateBrandedReceipt();
+            receipt.ReceiptNumber = resp.refNo ?? invoiceToken;
+            receipt.AgentName = LoginPage.Name ?? LoginPage.ValidUserMail ?? "N/A";
+            receipt.CollectionPoint =  "BOIRS Collection Point";
+            receipt.TotalAmount = actualAmt;
+            receipt.AmountPaid = amtPaid;
+            receipt.AmountLeft = amtLeft;
+            receipt.BarcodeLabel = $"{BrandConfig.VerifyReceiptUrl}{resp.refNo ?? invoiceToken}";
+
+            // Line items formatted like RegisterPropertyWHT
+            receipt.Items.Add(new ReceiptItem
+            {
+                Description = !string.IsNullOrEmpty(resp.taxName) ? resp.taxName : (lblTaxName.Text ?? "Revenue Payment"),
+                Amount = amtPaid
+            });
 
             if (!string.IsNullOrWhiteSpace(resp.payerName))
             {
-                items.Add(new ReceiptItem { Description = "Payer Name", Amount = 0m, SubText = resp.payerName });
+                receipt.Items.Add(new ReceiptItem { Description = "Payer Name", Amount = 0m, SubText = resp.payerName });
             }
 
             if (!string.IsNullOrWhiteSpace(resp.payerId))
             {
-                items.Add(new ReceiptItem { Description = "Payer ID", Amount = 0m, SubText = resp.payerId });
+                receipt.Items.Add(new ReceiptItem { Description = "Payer ID", Amount = 0m, SubText = resp.payerId });
             }
 
             if (!string.IsNullOrWhiteSpace(resp.lga))
             {
-                items.Add(new ReceiptItem { Description = "LGA", Amount = 0m, SubText = resp.lga });
+                receipt.Items.Add(new ReceiptItem { Description = "LGA", Amount = 0m, SubText = resp.lga });
             }
 
-            items.Add(new ReceiptItem
+            receipt.Items.Add(new ReceiptItem
             {
                 Description = "Date",
                 Amount = 0m,
                 SubText = DateTime.Now.ToString("dd MMM yyyy HH:mm")
             });
 
-            return new ReceiptData
-            {
-                StoreName = App.RevenueServiceName ?? BrandConfig.ReceiptStoreName ?? "BORNO STATE INTERNAL REVENUE SERVICE",
-                StorePhone = BrandConfig.ReceiptPhone ?? "Contact us: +234 802 722 9331, +234 816 593 2680",
-                ReceiptBannerText = "OFFICIAL RECEIPT",
-                ReceiptNumber = resp.refNo ?? invoiceToken,
-                AgentName = LoginPage.Name ?? LoginPage.ValidUserMail ?? "N/A",
-                CollectionPoint = "BOIRS Mobile Terminal",
-                PrintDate = DateTime.Now,
-                Items = items,
-                TotalAmount = actualAmt,
-                AmountPaid = amtPaid,
-                AmountLeft = amtLeft,
-                FooterLine1 = isReprint ? "*** REPRINTED RECEIPT ***" : (App.ThankYouMessage ?? BrandConfig.ReceiptFooterLine1 ?? "Thank You!"),
-                FooterLine2 = isReprint
-                    ? $"Reprinted: {DateTime.Now:dd MMM yyyy HH:mm} | POWERED BY OSOFTPAY"
-                    : (App.PrinterFooter ?? BrandConfig.ReceiptFooterLine2 ?? "POWERED BY OSOFTPAY"),
-                BarcodeLabel = $"{BrandConfig.VerifyReceiptUrl}{resp.refNo ?? invoiceToken}"
-            };
+            return receipt;
         }
 
-        private async Task AttemptPrintAsync(ReceiptData receipt, bool isReprint)
+        // ─────────────────────────────────────────────────────────────────────
+        //  TRIGGER PRINT (Post-Payment & Reprint Handlers)
+        // ─────────────────────────────────────────────────────────────────────
+
+        private async Task TriggerReceiptPrintAsync(ReceiptData receipt)
         {
-            bool granted = await BluetoothPermissionHelper.RequestAsync();
-            if (!granted)
+            if (receipt == null) return;
+            await ReceiptPrinter.PrintAsync(receipt);
+        }
+
+        private async void OnPrintReceiptClicked(object sender, EventArgs e)
+        {
+            if (_lastReceiptData == null)
             {
-                await Device.InvokeOnMainThreadAsync(() => DisplayAlert("Bluetooth Permission",
-                    "Printing needs Bluetooth permission. Please allow it in Settings and retry.", "OK"));
+                UserDialogs.Instance.Toast("No receipt data available.");
                 return;
             }
 
-            if (_isPrinting) return;
-            _isPrinting = true;
-
+            PrintReceiptButton.IsEnabled = false;
             try
             {
-                var job = await App.PrintJobManager.EnqueueAsync(receipt, logoAssetName: "Logo.png");
-
-                var progress = new Progress<PrintProgress>(p =>
-                    MainThread.BeginInvokeOnMainThread(() =>
-                    {
-                        switch (p.Status)
-                        {
-                            case PrintProgressStatus.ChunkStarted:
-                                UserDialogs.Instance.Toast($"Printing {p.ChunkName}…", TimeSpan.FromSeconds(2));
-                                break;
-                            case PrintProgressStatus.ChunkRetrying:
-                                UserDialogs.Instance.Toast($"Reconnecting… retry {p.ChunkName} (#{p.AttemptNumber})", TimeSpan.FromSeconds(2));
-                                break;
-                            case PrintProgressStatus.SessionCompleted:
-                                UserDialogs.Instance.Toast(isReprint ? "Receipt reprinted." : "Receipt printed successfully.", TimeSpan.FromSeconds(3));
-                                break;
-                            case PrintProgressStatus.ChunkFailed:
-                                UserDialogs.Instance.Toast($"Could not print {p.ChunkName}.", TimeSpan.FromSeconds(4));
-                                break;
-                        }
-                    }));
-
-                using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60)))
-                {
-                    await App.PrintJobManager.ExecuteAsync(job.JobId, progress, cts.Token);
-                    await App.PrintJobManager.DeleteJobAsync(job.JobId);
-                }
-            }
-            catch (PrinterException pex)
-            {
-                Device.BeginInvokeOnMainThread(() => UserDialogs.Instance.Toast($"Print failed: {pex.Message}", TimeSpan.FromSeconds(5)));
-            }
-            catch (Exception ex)
-            {
-                Device.BeginInvokeOnMainThread(() => UserDialogs.Instance.Toast("Printer unreachable. Check Bluetooth and tap Print.", TimeSpan.FromSeconds(5)));
-                System.Diagnostics.Debug.WriteLine($"[Payment Print Error]: {ex.Message}");
+                _lastReceiptData.FooterLine1 = "*** REPRINTED RECEIPT ***";
+                _lastReceiptData.FooterLine2 = $"Reprinted: {DateTime.Now:dd MMM yyyy HH:mm} | POWERED BY OSOFTPAY";
+                await TriggerReceiptPrintAsync(_lastReceiptData);
             }
             finally
             {
-                _isPrinting = false;
+                PrintReceiptButton.IsEnabled = true;
             }
         }
 

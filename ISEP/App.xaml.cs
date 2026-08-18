@@ -8,25 +8,40 @@ namespace ISEP
 {
     public partial class App : Application
     {
+        // ── Legacy compatibility surface ─────────────────────────
+        // Forwards to BrandConfig and SessionService so there is a
+        // single source of truth across the app.
         public static bool IsUserLoggedIn { get; set; }
-        public static string RevenueServiceName { get; set; } = BrandConfig.OrganisationName;
-        public static string PrinterFooter { get; set; } = BrandConfig.ReceiptFooterLine1;
-        public static string ThankYouMessage { get; set; } = BrandConfig.ReceiptFooterLine2;
 
-        // Print Job Manager instance accessible globally
-        public static PrintJobManager PrintJobManager { get; private set; }
+        public static string RevenueServiceName => BrandConfig.OrganisationName + " (" + BrandConfig.OrganisationAbbr + ") ";
+        public static string PrinterFooter => BrandConfig.ReceiptFooterLine2;
+        public static string ThankYouMessage => "CONTACT US : " + BrandConfig.SupportPhone1 + ", " + BrandConfig.SupportPhone2;
+
+        /// <summary>Shared printer service. Prefer using <see cref="ReceiptPrinter"/> over calling this directly.</summary>
         public static IPrinterService Printer { get; private set; }
+
+        /// <summary>Durable print job queue. Managed automatically by <see cref="ReceiptPrinter"/>.</summary>
+        public static PrintJobManager PrintJobManager { get; private set; }
+
+        /// <summary>
+        /// Called by the platform head (MainActivity on Android) BEFORE
+        /// LoadApplication to inject the platform printer driver.
+        /// </summary>
+        public static void InitializePrinting(IPrinterService printer)
+        {
+            Printer = printer ?? new MockPrinterService();
+            PrintJobManager = new PrintJobManager(Printer);
+        }
 
         public App()
         {
             InitializeComponent();
 
-            // Configure API SSL Settings globally
-            ApiClient.ConfigureSSL();
-
-            // Initialize Printer Service Pipeline
-            Printer = new MockPrinterService(); // Replace with your native BluetoothPrinterService instance in Android project
-            PrintJobManager = new PrintJobManager(Printer);
+            // Safety fallback for previewers/tests if platform head did not inject a printer
+            if (Printer == null)
+            {
+                InitializePrinting(DependencyService.Get<IPrinterService>() ?? new MockPrinterService());
+            }
 
             // Check for Auto-Login Session
             if (SessionService.TryAutoLogin())
@@ -41,47 +56,67 @@ namespace ISEP
             }
         }
 
-        protected override void OnStart()
+        protected override async void OnStart()
         {
             base.OnStart();
-            // Register platform instances
-            if (Printer == null)
-            {
-                // On Android head: DependencyService or platform provider assigns BluetoothPrinterService
-                Printer = DependencyService.Get<IPrinterService>() ?? new MockPrinterService();
-            }
 
-            if (PrintJobManager == null)
-            {
-                PrintJobManager = new PrintJobManager(Printer);
-            }
-
-            // Clean up jobs older than 48 hours on startup
-            Task.Run(async () => await PrintJobManager.PruneOldJobsAsync());
-        }
-
-        protected override async void OnResume()
-        {
-            base.OnResume();
-            await ProcessPendingPrintJobsAsync();
-        }
-
-        private async Task ProcessPendingPrintJobsAsync()
-        {
             try
             {
-                // Retry any receipts queued during network or printer connection loss
+                // 1. Session restoration check
+                SessionService.EnsureSessionRestored();
+
+                // 2. Clean up jobs older than 48 hours
+                if (PrintJobManager != null)
+                {
+                    await PrintJobManager.PruneOldJobsAsync();
+                }
+
+                // 3. Durable print recovery (retries any receipts interrupted earlier)
                 await ReceiptPrinter.RetryPendingAsync();
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error processing pending print jobs: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[App OnStart Error]: {ex.Message}");
             }
         }
 
         protected override void OnSleep()
         {
             base.OnSleep();
+            _sleptAtUtc = DateTime.UtcNow;
         }
+
+        protected override async void OnResume()
+        {
+            base.OnResume();
+
+            try
+            {
+                // Inactivity timeout enforcement (10 mins by default from BrandConfig)
+                if (IsUserLoggedIn && _sleptAtUtc.HasValue)
+                {
+                    var away = DateTime.UtcNow - _sleptAtUtc.Value;
+                    if (away > TimeSpan.FromMinutes(BrandConfig.SessionInactivityTimeoutMinutes))
+                    {
+                        SessionService.ClearSession();
+                        IsUserLoggedIn = false;
+                        MainPage = new NavigationPage(new LoginPage());
+                        return;
+                    }
+                }
+
+                // Ensure static session state is restored if process was recycled
+                SessionService.EnsureSessionRestored();
+
+                // Retry any pending print jobs upon resuming Bluetooth connectivity
+                await ReceiptPrinter.RetryPendingAsync();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[App OnResume Error]: {ex.Message}");
+            }
+        }
+
+        private DateTime? _sleptAtUtc;
     }
 }

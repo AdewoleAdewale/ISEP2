@@ -299,64 +299,57 @@ namespace ISEP.Views
         private async void OnChangePinTapped(object sender, EventArgs e) => await Navigation.PushAsync(new Views.ChangePin());
         private async void OnChangePasswordTapped(object sender, EventArgs e) => await Navigation.PushAsync(new Views.ChangePassword());
 
+        // ── Hard Diagnostics / Test Print ──────────────────────────────
         private async void TestPrinter_Clicked(object sender, EventArgs e)
         {
-            await RunTestPrintAsync();
+            await CallPrinterAsync();
         }
 
-        private async Task RunTestPrintAsync()
+        private async Task CallPrinterAsync()
         {
-            // 1. Check runtime Bluetooth permission
+            // 1. Verify Bluetooth runtime permission
             bool granted = await BluetoothPermissionHelper.RequestAsync();
             if (!granted)
             {
-                await DisplayAlert(
-                    "Bluetooth Permission",
-                    "Printing requires Bluetooth permission. Please allow it in device Settings.",
-                    "OK");
+                await DisplayAlert("Bluetooth Permission",
+                    "Printing needs Bluetooth permission. Please allow it in Settings and try again.", "OK");
                 return;
             }
 
-            // 2. Call App.Printer with a 30-second cancellation guard
             try
             {
                 using (UserDialogs.Instance.Loading("Connecting to Printer...", null, null, true))
                 {
-                    using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30)))
+                    var printTask = App.Printer.PrintTestPageAsync();
+                    var timeoutTask = Task.Delay(TimeSpan.FromSeconds(30));
+                    var finished = await Task.WhenAny(printTask, timeoutTask);
+
+                    if (finished == timeoutTask)
                     {
-                        var printTask = App.Printer.PrintTestPageAsync(cancellationToken: cts.Token);
-                        var timeoutTask = Task.Delay(TimeSpan.FromSeconds(30), cts.Token);
-
-                        var finished = await Task.WhenAny(printTask, timeoutTask);
-                        if (finished == timeoutTask)
-                        {
-                            await DisplayAlert(
-                                "Printer Error",
-                                "Print timed out. Ensure the printer is turned on and paired in Bluetooth settings.",
-                                "OK");
-                            return;
-                        }
-
-                        await printTask;
+                        await DisplayAlert("Printer Error",
+                            "Print timed out. Check that the printer is powered on and paired.", "OK");
+                        return;
                     }
+
+                    await printTask; // surface any PrinterException
                 }
 
-                await DisplayAlert("Print Diagnostics", "Test page sent successfully.", "OK");
+                await DisplayAlert("Print Test",
+                    "Test page sent successfully. Check your printer output.", "OK");
             }
             catch (PrinterException pex)
             {
-                await DisplayAlert("Printer Diagnostics", pex.Message, "OK");
+                await DisplayAlert("Printer Error", pex.Message, "OK");
+                System.Diagnostics.Debug.WriteLine($"[Dashboard] PrinterException: {pex}");
             }
             catch (Exception ex)
             {
-                await DisplayAlert(
-                    "Printer Diagnostics",
-                    "Could not connect to the printer. Check that it is powered on and within range.",
-                    "OK");
-                System.Diagnostics.Debug.WriteLine($"[Dashboard Test Print]: {ex.Message}");
+                await DisplayAlert("Printer Error",
+                    "Could not connect to printer. Ensure it is switched on and paired.", "OK");
+                System.Diagnostics.Debug.WriteLine($"[Dashboard] Print error: {ex.Message}");
             }
         }
-    
+
         private void LogError(string context, Exception ex)
         {
             try

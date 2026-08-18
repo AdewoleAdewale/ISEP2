@@ -1,43 +1,16 @@
-﻿using Acr.UserDialogs;
-using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using System;
 using System.Threading.Tasks;
+using Acr.UserDialogs;
 using Xamarin.Forms;
 
 namespace ISEP.Services
 {
     /// <summary>
-    /// ══════════════════════════════════════════════════════════════════
-    ///  THE ONLY WAY PAGES SHOULD PRINT.
-    ///
-    ///  Replaces every copy-pasted `CallPrinter(string)` raw-Bluetooth
-    ///  block with a single call:
-    ///
-    ///      var receipt = ReceiptPrinter.CreateBrandedReceipt();
-    ///      receipt.ReceiptNumber = transactId;
-    ///      receipt.AgentName     = SessionService.Current?.Name;
-    ///      receipt.Items.Add(new ReceiptItem { Description = service, Amount = amount });
-    ///      receipt.TotalAmount = amount;
-    ///      receipt.AmountPaid  = amount;
-    ///      await ReceiptPrinter.PrintAsync(receipt);
-    ///
-    ///  What you get for free:
-    ///    • Android 12+ runtime Bluetooth permission handling
-    ///    • printer availability check with a friendly prompt
-    ///    • chunked transmission with checkpoint / resume
-    ///    • the job is persisted to disk first — if Bluetooth drops or
-    ///      the app dies, App.PrintJobManager retries it on next launch
-    ///    • a progress dialog and consistent error messaging
-    /// ══════════════════════════════════════════════════════════════════
+    /// The standard Borno IGR printing facade.
+    /// Handles permissions, disk queueing, discovery check, and chunked execution.
     /// </summary>
     public static class ReceiptPrinter
     {
-        /// <summary>
-        /// New ReceiptData pre-filled from BrandConfig so every module prints
-        /// an identically branded receipt. Rebranding receipts = editing
-        /// BrandConfig only.
-        /// </summary>
         public static ReceiptData CreateBrandedReceipt()
         {
             return new ReceiptData
@@ -52,12 +25,6 @@ namespace ISEP.Services
             };
         }
 
-        /// <summary>
-        /// Durably prints <paramref name="receipt"/>. Returns true when the
-        /// receipt fully printed; false when it was queued but could not be
-        /// completed now (it will be retried automatically on next launch or
-        /// via <see cref="RetryPendingAsync"/>).
-        /// </summary>
         public static async Task<bool> PrintAsync(ReceiptData receipt)
         {
             if (receipt == null) throw new ArgumentNullException(nameof(receipt));
@@ -71,11 +38,11 @@ namespace ISEP.Services
                 return false;
             }
 
-            // 2 ── Persist the job FIRST so nothing is ever lost
+            // 2 ── Persist the job FIRST so nothing is lost
             var job = await App.PrintJobManager.EnqueueAsync(
                 receipt, BrandConfig.ReceiptLogoAsset);
 
-            // 3 ── Availability check with a friendly prompt
+            // 3 ── Availability check with friendly prompt
             var available = await App.Printer.IsPrinterAvailableAsync();
             if (!available)
             {
@@ -106,24 +73,20 @@ namespace ISEP.Services
                 try
                 {
                     await App.PrintJobManager.ExecuteAsync(job.JobId, progress);
+                    await App.PrintJobManager.DeleteJobAsync(job.JobId);
                     UserDialogs.Instance.Toast("✅ Receipt printed");
                     return true;
                 }
                 catch (Exception)
                 {
-                    // Job stays on disk in PartialSuccess/Pending state.
                     await ShowAlertAsync("Print Interrupted",
                         "The receipt could not finish printing. It has been saved and will " +
-                        "resume automatically. You can also reprint it from History.");
+                        "resume automatically.");
                     return false;
                 }
             }
         }
 
-        /// <summary>
-        /// Retries every unfinished job on disk. App.OnResume calls this;
-        /// dashboards may also expose it behind a "Retry pending receipts" action.
-        /// </summary>
         public static async Task RetryPendingAsync()
         {
             try
@@ -137,6 +100,7 @@ namespace ISEP.Services
             }
         }
 
+     
         private static Task ShowAlertAsync(string title, string message)
         {
             var tcs = new TaskCompletionSource<bool>();

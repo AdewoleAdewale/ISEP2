@@ -3,6 +3,9 @@ using Android.App;
 using Android.Content.PM;
 using Android.OS;
 using Android.Runtime;
+using Android.Support.V4.App;
+using Android.Support.V4.Content;
+using ISEP.Droid.Services;
 using ISEP.Services;
 using System;
 using System.Threading.Tasks;
@@ -55,6 +58,7 @@ namespace ISEP.Droid
                     return status == Xamarin.Essentials.PermissionStatus.Granted;
                 }
             });
+            App.InitializePrinting(new BluetoothPrinterService(use80mm: false));
             LoadApplication(new App());
         }
 

@@ -295,8 +295,8 @@
                             <!-- Bottom Sheet Actions -->
                             <StackLayout Spacing="8" Margin="0,6,0,0">
                                 <Button x:Name="PrintReceiptButton"
-                                        Text="CLOSE RECEIPT"
-                                        Clicked="OnBackgroundTapped"
+                                        Text="REPINT RECEIPT"
+                                        Clicked="OnPrintReceiptClicked"
                                         Style="{StaticResource PrimaryButtonStyle}"/>
 
                                 <Button Text="NEW TRANSACTION"
